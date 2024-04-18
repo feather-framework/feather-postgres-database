@@ -89,9 +89,9 @@ jobs:
         run: |
             brew install postgresql && brew link --force postgresql
             brew services stop postgresql
+            pg_ctl -D /tmp/postgres-test -l logfile stop --wait
             rm -rf /tmp/postgres-test
             initdb --locale=C --auth-host=scram-sha-256 -U "${POSTGRES_USER}" --pwfile=<(echo "${POSTGRES_PASSWORD}")
-            pg_ctl -D /tmp/postgres-test -l logfile stop --wait
             pg_ctl -D /tmp/postgres-test -l logfile start --wait
       - name: Checkout code
         uses: actions/checkout@v4
