@@ -62,7 +62,7 @@ final class FeatherDatabaseDriverPostgresTests: XCTestCase {
 
         let testSuite = DatabaseTestSuite(db)
         try await testSuite.testAll()
-        
+
         pool.shutdown()
         try await eventLoopGroup.shutdownGracefully()
         try await threadPool.shutdownGracefully()

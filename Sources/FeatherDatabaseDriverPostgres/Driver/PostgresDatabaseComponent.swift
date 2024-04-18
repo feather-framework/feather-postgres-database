@@ -13,7 +13,7 @@ import SQLKit
 
 @dynamicMemberLookup
 struct PostgresDatabaseComponent: DatabaseComponent {
-    
+
     public let config: ComponentConfig
 
     subscript<T>(
