@@ -11,47 +11,43 @@ on:
     - main
 
 jobs:
-  linux-tests:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        swift:
-          - 'swift:5.9'
-          - 'swift:5.10'
-        database:
-          - postgres
-    container:
-      image: ${{ matrix.swift }}
-      volumes: [ 'pgrunshare:/var/run/postgresql' ]
-    services:
-      postgres:
-        image: ${{ matrix.database }}
-        env:
-          POSTGRES_USER: 'test_user'
-          POSTGRES_DB: 'test_database'
-          POSTGRES_PASSWORD: 'test_password'
-          # POSTGRES_HOST_AUTH_METHOD: ${{ matrix.postgres-auth }}
-          # POSTGRES_INITDB_ARGS: --auth-host=${{ matrix.postgres-auth }}
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Test
-      env:
-        PG_HOST: 'postgres'
-        PG_USER: 'test_user'
-        PG_PASS: 'test_password'
-        PG_DB: 'test_database'
-        # POSTGRES_HOST: postgres
-        # POSTGRES_PORT: 5432
-      run: swift test --parallel --enable-code-coverage
+  # linux-tests:
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       swift:
+  #         - 'swift:5.9'
+  #         - 'swift:5.10'
+  #       database:
+  #         - postgres
+  #   container:
+  #     image: ${{ matrix.swift }}
+  #     volumes: [ 'pgrunshare:/var/run/postgresql' ]
+  #   services:
+  #     postgres:
+  #       image: ${{ matrix.database }}
+  #       env:
+  #         POSTGRES_USER: 'test_user'
+  #         POSTGRES_DB: 'test_database'
+  #         POSTGRES_PASSWORD: 'test_password'
+  #       options: >-
+  #         --health-cmd pg_isready
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #       ports:
+  #         - 5432:5432
+  #   steps:
+  #   - name: Checkout
+  #     uses: actions/checkout@v4
+  #   - name: Test
+  #     env:
+  #       PG_HOST: 'postgres'
+  #       PG_USER: 'test_user'
+  #       PG_PASS: 'test_password'
+  #       PG_DB: 'test_database'
+  #     run: swift test --parallel --enable-code-coverage
 
   # macOS-tests:
   #   runs-on: self-hosted
@@ -63,9 +59,7 @@ jobs:
   #         MYSQL_USER: ${{ secrets.MYSQL_USER }}
   #         MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
   #       run: |
-  #         brew install mysql && brew link --force mysql
-  #         brew services start mysql
-  #         until echo | mysql -u root; do sleep 1; done
+            # until echo | mysql -u root; do sleep 1; done
   #         mysql -u root --batch <<-SQL
   #             CREATE USER IF NOT EXISTS ${MYSQL_USER}@localhost IDENTIFIED BY '${MYSQL_PASSWORD}';
   #             DROP DATABASE IF EXISTS ${MYSQL_DATABASE};
@@ -81,3 +75,39 @@ jobs:
   #         MYSQL_USER: ${{ secrets.MYSQL_USER }}
   #         MYSQL_PASS: ${{ secrets.MYSQL_PASSWORD }}
   #       run: swift test --parallel --enable-code-coverage
+
+  macOS-tests:
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+    env:
+      POSTGRES_USER: 'test_username'
+      POSTGRES_PASSWORD: 'test_password'
+    steps:
+      - name: Setup Postgres
+        run: |
+            brew install postgresql && brew link --force postgresql
+            brew services start postgresql
+            initdb --locale=C -U "${POSTGRES_USER}" --pwfile=<(echo "${POSTGRES_PASSWORD}")
+            pg_ctl start --wait
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Run all tests
+        env:
+          PG_HOST: ${{ secrets.PG_HOST }}
+          PG_DB: ${{ secrets.PG_DATABASE }}
+          PG_USER: ${{ secrets.PG_USER }}
+          PG_PASS: ${{ secrets.PG_PASSWORD }}
+        run: swift test --parallel --enable-code-coverage
+
+
+
+
+
+
+
+
+
+
+
+
