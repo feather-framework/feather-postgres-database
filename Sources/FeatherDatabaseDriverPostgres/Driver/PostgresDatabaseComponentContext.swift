@@ -1,6 +1,6 @@
 //
-//  PostgresRelationalDatabaseComponentContext.swift
-//  PostgresRelationalDatabaseDriverPostgres
+//  PostgresDatabaseComponentContext.swift
+//  PostgresDatabaseDriverPostgres
 //
 //  Created by Tibor Bodecs on 18/11/2023.
 //
@@ -8,7 +8,7 @@
 import FeatherComponent
 @preconcurrency import PostgresKit
 
-public struct PostgresRelationalDatabaseComponentContext: ComponentContext {
+public struct PostgresDatabaseComponentContext: ComponentContext {
 
     let pool: EventLoopGroupConnectionPool<PostgresConnectionSource>
 
@@ -19,6 +19,6 @@ public struct PostgresRelationalDatabaseComponentContext: ComponentContext {
     }
 
     public func make() throws -> ComponentFactory {
-        PostgresRelationalDatabaseComponentFactory(context: self)
+        PostgresDatabaseComponentFactory(context: self)
     }
 }

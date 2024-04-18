@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "feather-relational-database-driver-postgres",
+    name: "feather-database-driver-postgres",
     platforms: [
         .macOS(.v13),
         .iOS(.v16),
@@ -11,24 +11,25 @@ let package = Package(
         .visionOS(.v1),
     ],
     products: [
-        .library(name: "FeatherRelationalDatabaseDriverPostgres", targets: ["FeatherRelationalDatabaseDriverPostgres"]),
+        .library(name: "FeatherDatabaseDriverPostgres", targets: ["FeatherDatabaseDriverPostgres"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/feather-framework/feather-relational-database", .upToNextMinor(from: "0.3.0")),
+        .package(url: "https://github.com/feather-framework/feather-database", .upToNextMinor(from: "0.4.0")),
         .package(url: "https://github.com/vapor/postgres-kit", from: "2.0.0"),
     ],
     targets: [
         .target(
-            name: "FeatherRelationalDatabaseDriverPostgres",
+            name: "FeatherDatabaseDriverPostgres",
             dependencies: [
-                .product(name: "FeatherRelationalDatabase", package: "feather-relational-database"),
+                .product(name: "FeatherDatabase", package: "feather-database"),
                 .product(name: "PostgresKit", package: "postgres-kit"),
             ]
         ),
         .testTarget(
-            name: "FeatherRelationalDatabaseDriverPostgresTests",
+            name: "FeatherDatabaseDriverPostgresTests",
             dependencies: [
-                .target(name: "FeatherRelationalDatabaseDriverPostgres"),
+                .product(name: "FeatherDatabaseTesting", package: "feather-database"),
+                .target(name: "FeatherDatabaseDriverPostgres"),
             ]
         ),
     ]

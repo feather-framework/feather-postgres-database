@@ -1,18 +1,19 @@
 //
-//  FeatherRelationalDatabaseDriverPostgresTests.swift
-//  FeatherRelationalDatabaseDriverPostgresTests
+//  FeatherDatabaseDriverPostgresTests.swift
+//  FeatherDatabaseDriverPostgresTests
 //
 //  Created by Tibor Bodecs on 2023. 01. 16..
 //
 
 import FeatherComponent
-import FeatherRelationalDatabase
-import FeatherRelationalDatabaseDriverPostgres
+import FeatherDatabase
+import FeatherDatabaseDriverPostgres
+import FeatherDatabaseTesting
 import NIO
 import PostgresKit
 import XCTest
 
-final class FeatherRelationalDatabaseDriverPostgresTests: XCTestCase {
+final class FeatherDatabaseDriverPostgresTests: XCTestCase {
 
     var host: String {
         ProcessInfo.processInfo.environment["PG_HOST"]!
@@ -53,53 +54,15 @@ final class FeatherRelationalDatabaseDriverPostgresTests: XCTestCase {
                 on: eventLoopGroup
             )
 
-        try await registry.addRelationalDatabase(
-            PostgresRelationalDatabaseComponentContext(pool: pool)
+        try await registry.addDatabase(
+            PostgresDatabaseComponentContext(pool: pool)
         )
 
-        let dbComponent = try await registry.relationalDatabase()
-        let db = try await dbComponent.connection()
+        let db = try await registry.database()
 
-        do {
-            struct Galaxy: Codable {
-                let id: Int
-                let name: String
-            }
-
-            try await db
-                .create(table: "galaxies")
-                .ifNotExists()
-                // TODO: figure out how to auto increment
-                .column("id", type: .int, .primaryKey(autoIncrement: false))
-                .column("name", type: .text)
-                .run()
-
-            try await db.delete(from: "galaxies").run()
-
-            try await db
-                .insert(into: "galaxies")
-                .columns("id", "name")
-                .values(SQLBind(1), SQLBind("Milky Way"))
-                .values(SQLBind(2), SQLBind("Andromeda"))
-                .run()
-
-            let galaxies =
-                try await db
-                .select()
-                .column("*")
-                .from("galaxies")
-                .all(decoding: Galaxy.self)
-
-            print("------------------------------")
-            for galaxy in galaxies {
-                print(galaxy.id, galaxy.name)
-            }
-            print("------------------------------")
-        }
-        catch {
-            throw error
-        }
-
+        let testSuite = DatabaseTestSuite(db)
+        try await testSuite.testAll()
+        
         pool.shutdown()
         try await eventLoopGroup.shutdownGracefully()
         try await threadPool.shutdownGracefully()
