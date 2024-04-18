@@ -11,38 +11,44 @@ on:
     - main
 
 jobs:
-  # linux-tests:
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       swift:
-  #         - 'swift:5.9'
-  #         - 'swift:5.10'
-  #       database:
-  #         - mysql:8.2
-  #   container:
-  #     image: ${{ matrix.swift }}
-  #   services:
-  #     mysql:
-  #       image: ${{ matrix.database }}
-  #       env:
-  #         MYSQL_ROOT_PASSWORD: root
-  #         MYSQL_HOST: 127.0.0.1
-  #         MYSQL_DATABASE: test_database
-  #         MYSQL_USER: test_user
-  #         MYSQL_PASSWORD: test_password
-  #       options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
-  #   steps:
-  #   - name: Checkout
-  #     uses: actions/checkout@v4
-  #   - name: Test
-  #     env:
-  #       MYSQL_HOST: mysql
-  #       MYSQL_DB: test_database
-  #       MYSQL_USER: test_user
-  #       MYSQL_PASS: test_password
-  #     run: swift test --parallel --enable-code-coverage
+  linux-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        swift:
+          - 'swift:5.9'
+          - 'swift:5.10'
+        database:
+          - postgres
+    container:
+      image: ${{ matrix.swift }}
+      volumes: [ 'pgrunshare:/var/run/postgresql' ]
+    services:
+      postgres:
+        image: ${{ matrix.database }}
+        env:
+          POSTGRES_USER: 'test_user'
+          POSTGRES_DB: 'test_database'
+          POSTGRES_PASSWORD: 'test_password'
+          # POSTGRES_HOST_AUTH_METHOD: ${{ matrix.postgres-auth }}
+          # POSTGRES_INITDB_ARGS: --auth-host=${{ matrix.postgres-auth }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Test
+      env:
+        POSTGRES_HOST: postgres
+        POSTGRES_PORT: 5432
+      run: swift test --parallel --enable-code-coverage
+
   # macOS-tests:
   #   runs-on: self-hosted
   #   steps:
