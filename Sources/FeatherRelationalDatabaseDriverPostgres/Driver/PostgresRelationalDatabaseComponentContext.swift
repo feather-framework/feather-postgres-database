@@ -10,18 +10,15 @@ import FeatherComponent
 
 public struct PostgresRelationalDatabaseComponentContext: ComponentContext {
 
-    let eventLoopGroup: EventLoopGroup
-    let connectionSource: PostgresConnectionSource
-    
+    let pool: EventLoopGroupConnectionPool<PostgresConnectionSource>
+
     public init(
-        eventLoopGroup: EventLoopGroup,
-        connectionSource: PostgresConnectionSource
+        pool: EventLoopGroupConnectionPool<PostgresConnectionSource>
     ) {
-        self.eventLoopGroup = eventLoopGroup
-        self.connectionSource = connectionSource
+        self.pool = pool
     }
 
-    public func make() throws -> ComponentBuilder {
-        PostgresRelationalDatabaseComponentBuilder(context: self)
+    public func make() throws -> ComponentFactory {
+        PostgresRelationalDatabaseComponentFactory(context: self)
     }
 }

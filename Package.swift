@@ -14,7 +14,7 @@ let package = Package(
         .library(name: "FeatherRelationalDatabaseDriverPostgres", targets: ["FeatherRelationalDatabaseDriverPostgres"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/feather-framework/feather-relational-database", .upToNextMinor(from: "0.2.0")),
+        .package(url: "https://github.com/feather-framework/feather-relational-database", .upToNextMinor(from: "0.3.0")),
         .package(url: "https://github.com/vapor/postgres-kit", from: "2.0.0"),
     ],
     targets: [

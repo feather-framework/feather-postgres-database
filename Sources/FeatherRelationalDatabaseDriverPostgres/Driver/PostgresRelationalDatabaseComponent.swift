@@ -9,13 +9,12 @@ import FeatherComponent
 import FeatherRelationalDatabase
 import SQLKit
 import PostgresKit
-@preconcurrency import AsyncKit
+import AsyncKit
 
 @dynamicMemberLookup
 struct PostgresRelationalDatabaseComponent: RelationalDatabaseComponent {
     
     public let config: ComponentConfig
-    let pool: EventLoopGroupConnectionPool<PostgresConnectionSource>
 
     subscript<T>(
         dynamicMember keyPath: KeyPath<PostgresRelationalDatabaseComponentContext, T>
@@ -24,16 +23,7 @@ struct PostgresRelationalDatabaseComponent: RelationalDatabaseComponent {
         return context[keyPath: keyPath]
     }
 
-    init(
-        config: ComponentConfig,
-        pool: EventLoopGroupConnectionPool<PostgresConnectionSource>
-    ) {
-        self.config = config
-        self.pool = pool
-    }
-    
     public func connection() async throws -> SQLKit.SQLDatabase {
-        pool.database(logger: self.logger).sql()
+        self.pool.database(logger: self.logger).sql()
     }
-    
 }
