@@ -1,0 +1,34 @@
+services:
+    postgres:
+        build:
+            context: .
+            dockerfile: docker/postgres/Dockerfile
+        volumes:
+            - 'postgres:/var/lib/postgresql'
+        ports:
+            - '5432:5432'
+        restart: always
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: postgres
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - |
+                    sh -c "pg_isready -d '
+                      sslmode=verify-full
+                      sslrootcert=/var/lib/postgresql/ca.crt
+                      sslcert=/var/lib/postgresql/server.crt
+                      sslkey=/var/lib/postgresql/server.key
+                      user=$${POSTGRES_USER}
+                      password=$${POSTGRES_PASSWORD}
+                      dbname=$${POSTGRES_DB}
+                    '"
+            interval: 1s
+            timeout: 5s
+            retries: 10
+
+volumes:
+    postgres:
+    
