@@ -2,12 +2,16 @@
 set -e
 
 # Append SSL configuration to postgresql.conf
-echo "ssl = on" >> "$PGDATA/postgresql.conf"
-echo "ssl_cert_file = '/certs/server.pem'" >> "$PGDATA/postgresql.conf"
-echo "ssl_key_file = '/certs/server.key'" >> "$PGDATA/postgresql.conf"
-echo "ssl_ca_file = '/certs/ca.pem'" >> "$PGDATA/postgresql.conf"
+cat >> "$PGDATA/postgresql.conf" <<'EOF'
+ssl = on
+ssl_cert_file = '/certs/server.pem'
+ssl_key_file = '/certs/server.key'
+ssl_ca_file = '/certs/ca.pem'
+EOF
 
 # Allow SSL connections only
-echo "local all all trust" > "$PGDATA/pg_hba.conf"
-echo "hostssl all all 0.0.0.0/0 md5" >> "$PGDATA/pg_hba.conf"
-echo "hostssl all all ::/0 md5" >> "$PGDATA/pg_hba.conf"
+cat > "$PGDATA/pg_hba.conf" <<'EOF'
+local all all trust
+hostssl all all 0.0.0.0/0 md5
+hostssl all all ::/0 md5
+EOF
