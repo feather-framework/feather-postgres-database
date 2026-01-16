@@ -21,12 +21,13 @@ public struct PostgresQueryResult: DatabaseQueryResult {
     public struct AsyncIterator: AsyncIteratorProtocol {
         var backingIterator: PostgresRowSequence.AsyncIterator
 
-        @concurrent
         /// Return the next row in the sequence.
         ///
         /// This stops when the sequence ends or the task is cancelled.
         /// - Throws: An error if the underlying sequence fails.
         /// - Returns: The next `PostgresRow`, or `nil` when finished.
+        #if compiler(>=6.2)
+        @concurrent
         public mutating func next() async throws -> PostgresRow? {
             guard !Task.isCancelled else {
                 return nil
@@ -36,6 +37,17 @@ public struct PostgresQueryResult: DatabaseQueryResult {
             }
             return postgresRow
         }
+        #else
+        public mutating func next() async throws -> PostgresRow? {
+            guard !Task.isCancelled else {
+                return nil
+            }
+            guard let postgresRow = try await backingIterator.next() else {
+                return nil
+            }
+            return postgresRow
+        }
+        #endif
     }
 
     /// Create an async iterator over the result rows.

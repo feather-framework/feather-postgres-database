@@ -38,19 +38,19 @@ public struct PostgresDatabaseClient: DatabaseClient {
 
     // MARK: - database api
 
-    #if compiler(>=6.2)
-
     /// Execute work using a managed Postgres connection.
     ///
     /// The closure receives a Postgres connection for the duration of the call.
-    /// - Parameter closure: A closure that receives the connection.
+    /// - Parameters:
+    ///   - isolation: The actor isolation for the operation.
+    ///   - closure: A closure that receives the connection.
     /// - Throws: A `DatabaseError` if connection handling fails.
     /// - Returns: The query result produced by the closure.
     @discardableResult
     public func connection(
-        _ closure:
-            nonisolated(nonsending)(PostgresConnection) async throws
-            -> sending PostgresQueryResult
+        isolation: isolated (any Actor)? = #isolation,
+        _ closure: (PostgresConnection) async throws ->
+            sending PostgresQueryResult,
     ) async throws(DatabaseError) -> sending PostgresQueryResult {
         do {
             return try await client.withConnection(closure)
@@ -66,66 +66,31 @@ public struct PostgresDatabaseClient: DatabaseClient {
     /// Execute work inside a Postgres transaction.
     ///
     /// The closure is wrapped in a transactional scope.
-    /// - Parameter closure: A closure that receives the connection.
+    /// - Parameters:
+    ///   - isolation: The actor isolation for the operation.
+    ///   - closure: A closure that receives the connection.
     /// - Throws: A `DatabaseError` if the transaction fails.
     /// - Returns: The query result produced by the closure.
     @discardableResult
     public func transaction(
-        _ closure:
-            nonisolated(nonsending)(PostgresConnection) async throws
-            -> sending PostgresQueryResult
+        isolation: isolated (any Actor)? = #isolation,
+        _ closure: (
+            (PostgresConnection) async throws -> sending PostgresQueryResult
+        ),
     ) async throws(DatabaseError) -> sending PostgresQueryResult {
         do {
-            return try await client.withTransaction(logger: logger, closure)
+            return try await client.withTransaction(
+                logger: logger,
+                isolation: isolation,
+                closure
+            )
         }
         catch let error as PostgresTransactionError {
             throw .transaction(error)
-        }
-        catch {
-            throw .connection(error)
-        }
-    }
-    #else
-    /// Execute work using a managed Postgres connection.
-    ///
-    /// The closure receives a Postgres connection for the duration of the call.
-    /// - Parameter closure: A closure that receives the connection.
-    /// - Throws: A `DatabaseError` if connection handling fails.
-    /// - Returns: The query result produced by the closure.
-    @discardableResult
-    public func connection(
-        _ closure: (PostgresConnection) async throws -> PostgresQueryResult
-    ) async throws(DatabaseError) -> PostgresQueryResult {
-        do {
-            return try await client.withConnection(closure)
-        }
-        catch let error as DatabaseError {
-            throw error
         }
         catch {
             throw .connection(error)
         }
     }
 
-    /// Execute work inside a Postgres transaction.
-    ///
-    /// The closure is wrapped in a transactional scope.
-    /// - Parameter closure: A closure that receives the connection.
-    /// - Throws: A `DatabaseError` if the transaction fails.
-    /// - Returns: The query result produced by the closure.
-    @discardableResult
-    public func transaction(
-        _ closure: (PostgresConnection) async throws -> PostgresQueryResult
-    ) async throws(DatabaseError) -> PostgresQueryResult {
-        do {
-            return try await client.withTransaction(logger: logger, closure)
-        }
-        catch let error as PostgresTransactionError {
-            throw .transaction(error)
-        }
-        catch {
-            throw .connection(error)
-        }
-    }
-    #endif
 }
