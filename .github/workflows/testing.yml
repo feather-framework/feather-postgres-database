@@ -36,10 +36,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Swift
-        uses: swiftlang/setup-swift@v2
-        with:
-          swift-version: "6.2"
       - name: Start Postgres
         run: docker compose up -d --build
       - name: Wait For Postgres
