@@ -6,7 +6,6 @@
 //
 
 import FeatherDatabase
-import FeatherPostgresDatabase
 import Logging
 import NIOSSL
 import PostgresNIO
@@ -791,7 +790,7 @@ struct FeatherPostgresDatabaseTestSuite {
             )
 
             func getValidAccessToken(sessionID: String) async throws -> String {
-                try await database.transactionGeneric { connection in
+                try await database.transaction { connection in
                     let result = try await connection.execute(
                         query: #"""
                             SELECT
@@ -1093,29 +1092,6 @@ struct FeatherPostgresDatabaseTestSuite {
             let item = resultArray[0]
             let version = try item.decode(column: "version", as: String.self)
             #expect(version.contains("PostgreSQL"))
-        }
-    }
-}
-
-extension PostgresDatabaseClient {
-
-    @discardableResult
-    public func transactionGeneric<T>(
-        isolation: isolated (any Actor)? = #isolation,
-        _ closure: ((PostgresConnection) async throws -> sending T),
-    ) async throws(DatabaseError) -> sending T {
-        do {
-            return try await client.withTransaction(
-                logger: logger,
-                isolation: isolation,
-                closure
-            )
-        }
-        catch let error as PostgresTransactionError {
-            throw .transaction(error)
-        }
-        catch {
-            throw .connection(error)
         }
     }
 }
