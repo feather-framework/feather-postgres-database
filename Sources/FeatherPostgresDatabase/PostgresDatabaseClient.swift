@@ -47,11 +47,10 @@ public struct PostgresDatabaseClient: DatabaseClient {
     /// - Throws: A `DatabaseError` if connection handling fails.
     /// - Returns: The query result produced by the closure.
     @discardableResult
-    public func connection(
+    public func connection<T>(
         isolation: isolated (any Actor)? = #isolation,
-        _ closure: (PostgresConnection) async throws ->
-            sending PostgresQueryResult,
-    ) async throws(DatabaseError) -> sending PostgresQueryResult {
+        _ closure: (PostgresConnection) async throws -> sending T,
+    ) async throws(DatabaseError) -> sending T {
         do {
             return try await client.withConnection(closure)
         }
@@ -72,12 +71,10 @@ public struct PostgresDatabaseClient: DatabaseClient {
     /// - Throws: A `DatabaseError` if the transaction fails.
     /// - Returns: The query result produced by the closure.
     @discardableResult
-    public func transaction(
+    public func transaction<T>(
         isolation: isolated (any Actor)? = #isolation,
-        _ closure: (
-            (PostgresConnection) async throws -> sending PostgresQueryResult
-        ),
-    ) async throws(DatabaseError) -> sending PostgresQueryResult {
+        _ closure: ((PostgresConnection) async throws -> sending T),
+    ) async throws(DatabaseError) -> sending T {
         do {
             return try await client.withTransaction(
                 logger: logger,
