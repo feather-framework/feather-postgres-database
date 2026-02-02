@@ -10,7 +10,7 @@ import PostgresNIO
 
 public struct PostgresDatabaseConnection: DatabaseConnection {
 
-    public typealias Query = PostgresQuery
+    public typealias Query = PostgresDatabaseQuery
     public typealias RowSequence = PostgresDatabaseRowSequence
 
     var connection: PostgresConnection
