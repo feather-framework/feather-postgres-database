@@ -178,7 +178,12 @@ struct FeatherPostgresDatabaseTestSuite {
                             AND "tablename" = '\#(unescaped: table)'
                         ORDER BY "tablename";
                         """#
-                ) { try $0.decode(column: "tablename", as: String.self) }
+                ) {
+                    try await $0.collect()
+                        .map {
+                            try $0.decode(column: "tablename", as: String.self)
+                        }
+                }
 
                 #expect(results.count == 1)
                 #expect(results[0] == table)
@@ -214,7 +219,7 @@ struct FeatherPostgresDatabaseTestSuite {
                     let id: Int
                     let name: String
 
-                    init(_ row: PostgresRow) throws {
+                    init(_ row: DatabaseRow) throws {
                         self.id = try row.decode(column: "id", as: Int.self)
                         self.name = try row.decode(
                             column: "name",
@@ -237,7 +242,12 @@ struct FeatherPostgresDatabaseTestSuite {
                     query: #"""
                         SELECT * FROM "\#(unescaped: table)" ORDER BY "name" ASC;
                         """#
-                ) { try GalaxyRow($0) }
+                ) {
+                    try await $0.collect()
+                        .map {
+                            try GalaxyRow($0)
+                        }
+                }
 
                 #expect(results.count == 2)
                 #expect(results[0].name == name1)
@@ -282,7 +292,7 @@ struct FeatherPostgresDatabaseTestSuite {
                     let id: Int
                     let value: String
 
-                    init(_ row: PostgresRow) throws {
+                    init(_ row: DatabaseRow) throws {
                         self.id = try row.decode(column: "id", as: Int.self)
                         self.value = try row.decode(
                             column: "value",
@@ -297,7 +307,7 @@ struct FeatherPostgresDatabaseTestSuite {
                         FROM "\#(unescaped: table)"
                         ORDER BY "id";
                         """#
-                ) { $0 }
+                ) { try await $0.collect() }
 
                 #expect(result.count == 2)
 
@@ -375,7 +385,7 @@ struct FeatherPostgresDatabaseTestSuite {
                             FROM "\#(unescaped: table)"
                             ORDER BY "id" ASC;
                             """#
-                    ) { $0 }
+                    ) { try await $0.collect() }
 
                 #expect(result.count == 2)
 
@@ -434,7 +444,7 @@ struct FeatherPostgresDatabaseTestSuite {
                             FROM "\#(unescaped: table)"
                             WHERE "id" = 1;
                             """#
-                    ) { $0 }
+                    ) { try await $0.collect() }
 
                 #expect(result.count == 1)
                 #expect(
@@ -485,7 +495,7 @@ struct FeatherPostgresDatabaseTestSuite {
                             FROM "\#(unescaped: table)"
                             WHERE "id" = 1;
                             """#
-                    ) { $0 }
+                    ) { try await $0.collect() }
 
                 #expect(result.count == 1)
                 #expect(
@@ -536,7 +546,7 @@ struct FeatherPostgresDatabaseTestSuite {
                             FROM "\#(unescaped: table)"
                             WHERE "id" = 1;
                             """#
-                    ) { $0 }
+                    ) { try await $0.collect() }
 
                 #expect(result.count == 1)
                 #expect(
@@ -584,7 +594,7 @@ struct FeatherPostgresDatabaseTestSuite {
                         FROM "\#(unescaped: table)"
                         ORDER BY "id";
                         """#
-                ) { $0 }
+                ) { try await $0.collect() }
 
                 #expect(result.count == 2)
                 let first = result[0]
@@ -642,7 +652,7 @@ struct FeatherPostgresDatabaseTestSuite {
                             FROM "\#(unescaped: table)"
                             ORDER BY "id" ASC;
                             """#
-                    ) { $0 }
+                    ) { try await $0.collect() }
                     .first
 
                 #expect(result != nil)
@@ -694,7 +704,7 @@ struct FeatherPostgresDatabaseTestSuite {
                             FROM "\#(unescaped: table)"
                             WHERE "id" = 1;
                             """#
-                    ) { $0 }
+                    ) { try await $0.collect() }
 
                 #expect(result.count == 1)
                 #expect(
@@ -775,7 +785,7 @@ struct FeatherPostgresDatabaseTestSuite {
                             SELECT "id"
                             FROM "\#(unescaped: table)";
                             """#
-                    ) { $0 }
+                    ) { try await $0.collect() }
 
                 #expect(result.isEmpty)
             }
@@ -841,7 +851,7 @@ struct FeatherPostgresDatabaseTestSuite {
                             WHERE "id" = \#(sessionID)
                             FOR UPDATE;
                             """#
-                    ) { $0 }
+                    ) { try await $0.collect() }
 
                     guard let row = rows.first else {
                         throw TestError.missingRow
@@ -904,7 +914,7 @@ struct FeatherPostgresDatabaseTestSuite {
                 let accessToken: String
                 let isValid: Bool
 
-                init(_ row: PostgresRow) throws {
+                init(_ row: DatabaseRow) throws {
                     self.refreshCount = try row.decode(
                         column: "refresh_count",
                         as: Int.self
@@ -932,7 +942,12 @@ struct FeatherPostgresDatabaseTestSuite {
                             FROM "\#(unescaped: table)"
                             WHERE "id" = \#(sessionID);
                             """#,
-                    ) { try SessionRow($0) }
+                    ) {
+                        try await $0.collect()
+                            .map {
+                                try SessionRow($0)
+                            }
+                    }
 
                 #expect(result.count == 1)
                 #expect(result[0].refreshCount == 1)
@@ -982,7 +997,7 @@ struct FeatherPostgresDatabaseTestSuite {
                             FROM "\#(unescaped: table)"
                             WHERE "id" = 1;
                             """#
-                    ) { $0 }
+                    ) { try await $0.collect() }
 
                 #expect(result.count == 1)
                 #expect(
@@ -1030,7 +1045,7 @@ struct FeatherPostgresDatabaseTestSuite {
                             SELECT "id"
                             FROM "\#(unescaped: table)";
                             """#
-                    ) { $0 }
+                    ) { try await $0.collect() }
 
                 #expect(result.count == 1)
 
@@ -1087,7 +1102,7 @@ struct FeatherPostgresDatabaseTestSuite {
                             SELECT "value"
                             FROM "\#(unescaped: table)";
                             """#
-                    ) { $0 }
+                    ) { try await $0.collect() }
 
                 #expect(result.count == 1)
 
@@ -1148,7 +1163,7 @@ struct FeatherPostgresDatabaseTestSuite {
                         WHERE
                             1=\#(1);
                         """#
-                ) { $0 }
+                ) { try await $0.collect() }
 
                 #expect(result.count == 1)
 

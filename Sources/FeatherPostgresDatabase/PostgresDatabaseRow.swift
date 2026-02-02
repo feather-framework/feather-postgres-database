@@ -8,7 +8,9 @@
 import FeatherDatabase
 import PostgresNIO
 
-extension PostgresRow: @retroactive DatabaseRow {
+public struct PostgresDatabaseRow: DatabaseRow {
+
+    var row: PostgresRow
 
     /// Decode a column value as the given type.
     ///
@@ -22,7 +24,7 @@ extension PostgresRow: @retroactive DatabaseRow {
         column: String,
         as type: T.Type
     ) throws(DecodingError) -> T {
-        let row = makeRandomAccess()
+        let row = row.makeRandomAccess()
         guard row.contains(column) else {
             throw .dataCorrupted(
                 .init(

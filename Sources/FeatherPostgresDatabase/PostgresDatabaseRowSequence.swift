@@ -11,7 +11,7 @@ import PostgresNIO
 /// A query result backed by a Postgres row sequence.
 ///
 /// Use this type to iterate or collect Postgres query results.
-public struct PostgresQueryResult: DatabaseQueryResult {
+public struct PostgresDatabaseRowSequence: DatabaseRowSequence {
 
     var backingSequence: PostgresRowSequence
 
@@ -28,14 +28,14 @@ public struct PostgresQueryResult: DatabaseQueryResult {
         /// - Returns: The next `PostgresRow`, or `nil` when finished.
         #if compiler(>=6.2)
         @concurrent
-        public mutating func next() async throws -> PostgresRow? {
+        public mutating func next() async throws -> PostgresDatabaseRow? {
             guard !Task.isCancelled else {
                 return nil
             }
             guard let postgresRow = try await backingIterator.next() else {
                 return nil
             }
-            return postgresRow
+            return .init(row: postgresRow)
         }
         #else
         public mutating func next() async throws -> PostgresRow? {
@@ -58,5 +58,18 @@ public struct PostgresQueryResult: DatabaseQueryResult {
         .init(
             backingIterator: backingSequence.makeAsyncIterator(),
         )
+    }
+
+    /// Collect all rows into an array.
+    ///
+    /// This consumes the sequence and returns all rows.
+    /// - Throws: An error if iteration fails.
+    /// - Returns: An array of `PostgresRow` values.
+    public func collect() async throws -> [PostgresDatabaseRow] {
+        var items: [PostgresDatabaseRow] = []
+        for try await item in self {
+            items.append(item)
+        }
+        return items
     }
 }
