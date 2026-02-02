@@ -92,54 +92,57 @@ struct FeatherPostgresDatabaseTestSuite {
             let planetsTable = "planets_\(suffix)"
             let moonsTable = "moons_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: moonsTable)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: planetsTable)" CASCADE;
-                    """#
-            )
+            try await database.withTransaction { connection in
 
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: planetsTable)" (
-                        "id" INTEGER PRIMARY KEY,
-                        "name" TEXT NOT NULL
-                    );
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: moonsTable)" (
-                        "id" INTEGER PRIMARY KEY,
-                        "planet_id" INTEGER NOT NULL
-                            REFERENCES "\#(unescaped: planetsTable)" ("id")
-                    );
-                    """#
-            )
-
-            do {
-                _ = try await database.execute(
+                try await connection.run(
                     query: #"""
-                        INSERT INTO "\#(unescaped: moonsTable)"
-                            ("id", "planet_id")
-                        VALUES
-                            (1, 999);
+                        DROP TABLE IF EXISTS "\#(unescaped: moonsTable)" CASCADE;
                         """#
                 )
-                Issue.record("Expected foreign key constraint violation.")
-            }
-            catch DatabaseError.query(let error) {
-                #expect(
-                    String(reflecting: error)
-                        .contains("violates foreign key constraint")
+                try await connection.run(
+                    query: #"""
+                        DROP TABLE IF EXISTS "\#(unescaped: planetsTable)" CASCADE;
+                        """#
                 )
-            }
-            catch {
-                Issue.record("Expected database query error to be thrown.")
+
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: planetsTable)" (
+                            "id" INTEGER PRIMARY KEY,
+                            "name" TEXT NOT NULL
+                        );
+                        """#
+                )
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: moonsTable)" (
+                            "id" INTEGER PRIMARY KEY,
+                            "planet_id" INTEGER NOT NULL
+                                REFERENCES "\#(unescaped: planetsTable)" ("id")
+                        );
+                        """#
+                )
+
+                do {
+                    _ = try await connection.run(
+                        query: #"""
+                            INSERT INTO "\#(unescaped: moonsTable)"
+                                ("id", "planet_id")
+                            VALUES
+                                (1, 999);
+                            """#
+                    )
+                    Issue.record("Expected foreign key constraint violation.")
+                }
+                catch DatabaseError.query(let error) {
+                    #expect(
+                        String(reflecting: error)
+                            .contains("violates foreign key constraint")
+                    )
+                }
+                catch {
+                    Issue.record("Expected database query error to be thrown.")
+                }
             }
         }
     }
@@ -150,37 +153,36 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "galaxies_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
+            try await database.withTransaction { connection in
 
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE IF NOT EXISTS "\#(unescaped: table)" (
-                        "id" INTEGER PRIMARY KEY,
-                        "name" TEXT
-                    );
-                    """#
-            )
+                try await connection.run(
+                    query: #"""
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
+                        """#
+                )
 
-            let results = try await database.execute(
-                query: #"""
-                    SELECT "tablename"
-                    FROM "pg_tables"
-                    WHERE "schemaname" = 'public'
-                        AND "tablename" = '\#(unescaped: table)'
-                    ORDER BY "tablename";
-                    """#
-            )
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE IF NOT EXISTS "\#(unescaped: table)" (
+                            "id" INTEGER PRIMARY KEY,
+                            "name" TEXT
+                        );
+                        """#
+                )
 
-            let resultArray = try await results.collect()
-            #expect(resultArray.count == 1)
+                let results = try await connection.run(
+                    query: #"""
+                        SELECT "tablename"
+                        FROM "pg_tables"
+                        WHERE "schemaname" = 'public'
+                            AND "tablename" = '\#(unescaped: table)'
+                        ORDER BY "tablename";
+                        """#
+                ) { try $0.decode(column: "tablename", as: String.self) }
 
-            let item = resultArray[0]
-            let name = try item.decode(column: "tablename", as: String.self)
-            #expect(name == table)
+                #expect(results.count == 1)
+                #expect(results[0] == table)
+            }
         }
     }
 
@@ -190,49 +192,58 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "galaxies_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE IF NOT EXISTS "\#(unescaped: table)" (
-                        "id" INTEGER PRIMARY KEY,
-                        "name" TEXT
-                    );
-                    """#
-            )
+            try await database.withConnection { connection in
+                try await connection.run(
+                    query: #"""
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
+                        """#
+                )
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE IF NOT EXISTS "\#(unescaped: table)" (
+                            "id" INTEGER PRIMARY KEY,
+                            "name" TEXT
+                        );
+                        """#
+                )
 
-            let name1 = "Andromeda"
-            let name2 = "Milky Way"
+                let name1 = "Andromeda"
+                let name2 = "Milky Way"
 
-            try await database.execute(
-                query: #"""
-                    INSERT INTO "\#(unescaped: table)"
-                        ("id", "name")
-                    VALUES
-                        (\#(1), \#(name1)),
-                        (\#(2), \#(name2));
-                    """#
-            )
+                struct GalaxyRow: Codable, Sendable {
+                    let id: Int
+                    let name: String
 
-            let results = try await database.execute(
-                query: #"""
-                    SELECT * FROM "\#(unescaped: table)" ORDER BY "name" ASC;
-                    """#
-            )
+                    init(_ row: PostgresRow) throws {
+                        self.id = try row.decode(column: "id", as: Int.self)
+                        self.name = try row.decode(
+                            column: "name",
+                            as: String.self
+                        )
+                    }
+                }
 
-            let resultArray = try await results.collect()
-            #expect(resultArray.count == 2)
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "name")
+                        VALUES
+                            (\#(1), \#(name1)),
+                            (\#(2), \#(name2));
+                        """#
+                )
 
-            let item1 = resultArray[0]
-            let name1result = try item1.decode(column: "name", as: String.self)
-            #expect(name1result == name1)
+                let results = try await connection.run(
+                    query: #"""
+                        SELECT * FROM "\#(unescaped: table)" ORDER BY "name" ASC;
+                        """#
+                ) { try GalaxyRow($0) }
 
-            let item2 = resultArray[1]
-            let name2result = try item2.decode(column: "name", as: String.self)
-            #expect(name2result == name2)
+                #expect(results.count == 2)
+                #expect(results[0].name == name1)
+                #expect(results[1].name == name2)
+            }
+
         }
     }
 
@@ -242,63 +253,83 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "foo_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" INTEGER NOT NULL PRIMARY KEY,
-                        "value" TEXT
-                    );
-                    """#
-            )
+            try await database.withConnection { connection in
+                try await connection.run(
+                    query: #"""
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
+                        """#
+                )
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "value" TEXT
+                        );
+                        """#
+                )
 
-            try await database.execute(
-                query: #"""
-                    INSERT INTO "\#(unescaped: table)"
-                        ("id", "value")
-                    VALUES
-                        (1, 'abc'),
-                        (2, NULL);
-                    """#
-            )
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "value")
+                        VALUES
+                            (1, 'abc'),
+                            (2, NULL);
+                        """#
+                )
 
-            let result =
-                try await database.execute(
+                struct FooRow: Codable, Sendable {
+                    let id: Int
+                    let value: String
+
+                    init(_ row: PostgresRow) throws {
+                        self.id = try row.decode(column: "id", as: Int.self)
+                        self.value = try row.decode(
+                            column: "value",
+                            as: String.self
+                        )
+                    }
+                }
+
+                let result = try await connection.run(
                     query: #"""
                         SELECT "id", "value"
                         FROM "\#(unescaped: table)"
                         ORDER BY "id";
                         """#
+                ) { $0 }
+
+                #expect(result.count == 2)
+
+                let item1 = result[0]
+                let item2 = result[1]
+
+                #expect(try item1.decode(column: "id", as: Int.self) == 1)
+                #expect(try item2.decode(column: "id", as: Int.self) == 2)
+
+                #expect(
+                    try item1.decode(column: "id", as: Int?.self) == .some(1)
                 )
-                .collect()
+                #expect(
+                    (try? item1.decode(column: "value", as: Int?.self)) == nil
+                )
 
-            #expect(result.count == 2)
+                #expect(
+                    try item1.decode(column: "value", as: String.self) == "abc"
+                )
+                #expect(
+                    (try? item2.decode(column: "value", as: String.self)) == nil
+                )
 
-            let item1 = result[0]
-            let item2 = result[1]
-
-            #expect(try item1.decode(column: "id", as: Int.self) == 1)
-            #expect(try item2.decode(column: "id", as: Int.self) == 2)
-
-            #expect(try item1.decode(column: "id", as: Int?.self) == .some(1))
-            #expect((try? item1.decode(column: "value", as: Int?.self)) == nil)
-
-            #expect(try item1.decode(column: "value", as: String.self) == "abc")
-            #expect(
-                (try? item2.decode(column: "value", as: String.self)) == nil
-            )
-
-            #expect(
-                (try item1.decode(column: "value", as: String?.self))
-                    == .some("abc")
-            )
-            #expect(
-                (try item2.decode(column: "value", as: String?.self)) == .none
-            )
+                #expect(
+                    (try item1.decode(column: "value", as: String?.self))
+                        == .some("abc")
+                )
+                #expect(
+                    (try item2.decode(column: "value", as: String?.self))
+                        == .none
+                )
+            }
         }
     }
 
@@ -308,56 +339,59 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "foo_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-
-            let row1: (Int, String?) = (1, "abc")
-            let row2: (Int, String?) = (2, nil)
-
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" INTEGER NOT NULL PRIMARY KEY,
-                        "value" TEXT
-                    );
-                    """#
-            )
-
-            try await database.execute(
-                query: #"""
-                    INSERT INTO "\#(unescaped: table)"
-                        ("id", "value")
-                    VALUES
-                        (\#(row1.0), \#(row1.1)),
-                        (\#(row2.0), \#(row2.1));
-                    """#
-            )
-
-            let result =
-                try await database.execute(
+            try await database.withTransaction { connection in
+                try await connection.run(
                     query: #"""
-                        SELECT "id", "value"
-                        FROM "\#(unescaped: table)"
-                        ORDER BY "id" ASC;
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
                         """#
                 )
-                .collect()
 
-            #expect(result.count == 2)
+                let row1: (Int, String?) = (1, "abc")
+                let row2: (Int, String?) = (2, nil)
 
-            let item1 = result[0]
-            let item2 = result[1]
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "value" TEXT
+                        );
+                        """#
+                )
 
-            #expect(try item1.decode(column: "id", as: Int.self) == 1)
-            #expect(try item2.decode(column: "id", as: Int.self) == 2)
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "value")
+                        VALUES
+                            (\#(row1.0), \#(row1.1)),
+                            (\#(row2.0), \#(row2.1));
+                        """#
+                )
 
-            #expect(
-                try item1.decode(column: "value", as: String?.self) == "abc"
-            )
-            #expect(try item2.decode(column: "value", as: String?.self) == nil)
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "id", "value"
+                            FROM "\#(unescaped: table)"
+                            ORDER BY "id" ASC;
+                            """#
+                    ) { $0 }
+
+                #expect(result.count == 2)
+
+                let item1 = result[0]
+                let item2 = result[1]
+
+                #expect(try item1.decode(column: "id", as: Int.self) == 1)
+                #expect(try item2.decode(column: "id", as: Int.self) == 2)
+
+                #expect(
+                    try item1.decode(column: "value", as: String?.self) == "abc"
+                )
+                #expect(
+                    try item2.decode(column: "value", as: String?.self) == nil
+                )
+            }
         }
     }
 
@@ -367,45 +401,47 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "widgets_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" INTEGER NOT NULL PRIMARY KEY,
-                        "name" TEXT NOT NULL
-                    );
-                    """#
-            )
-
-            let name = "gizmo"
-
-            try await database.execute(
-                query: #"""
-                    INSERT INTO "\#(unescaped: table)"
-                        ("id", "name")
-                    VALUES
-                        (\#(1), \#(name));
-                    """#
-            )
-
-            let result =
-                try await database.execute(
+            try await database.withConnection { connection in
+                try await connection.run(
                     query: #"""
-                        SELECT "name"
-                        FROM "\#(unescaped: table)"
-                        WHERE "id" = 1;
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
                         """#
                 )
-                .collect()
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "name" TEXT NOT NULL
+                        );
+                        """#
+                )
 
-            #expect(result.count == 1)
-            #expect(
-                try result[0].decode(column: "name", as: String.self) == "gizmo"
-            )
+                let name = "gizmo"
+
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "name")
+                        VALUES
+                            (\#(1), \#(name));
+                        """#
+                )
+
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "name"
+                            FROM "\#(unescaped: table)"
+                            WHERE "id" = 1;
+                            """#
+                    ) { $0 }
+
+                #expect(result.count == 1)
+                #expect(
+                    try result[0].decode(column: "name", as: String.self)
+                        == "gizmo"
+                )
+            }
         }
     }
 
@@ -415,45 +451,48 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "notes_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" INTEGER NOT NULL PRIMARY KEY,
-                        "body" TEXT
-                    );
-                    """#
-            )
+            try await database.withConnection { connection in
 
-            let body: String? = nil
-
-            try await database.execute(
-                query: #"""
-                    INSERT INTO "\#(unescaped: table)"
-                        ("id", "body")
-                    VALUES
-                        (1, \#(body));
-                    """#
-            )
-
-            let result =
-                try await database.execute(
+                try await connection.run(
                     query: #"""
-                        SELECT "body"
-                        FROM "\#(unescaped: table)"
-                        WHERE "id" = 1;
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
                         """#
                 )
-                .collect()
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "body" TEXT
+                        );
+                        """#
+                )
 
-            #expect(result.count == 1)
-            #expect(
-                try result[0].decode(column: "body", as: String?.self) == nil
-            )
+                let body: String? = nil
+
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "body")
+                        VALUES
+                            (1, \#(body));
+                        """#
+                )
+
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "body"
+                            FROM "\#(unescaped: table)"
+                            WHERE "id" = 1;
+                            """#
+                    ) { $0 }
+
+                #expect(result.count == 1)
+                #expect(
+                    try result[0].decode(column: "body", as: String?.self)
+                        == nil
+                )
+            }
         }
     }
 
@@ -463,46 +502,48 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "tags_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" INTEGER NOT NULL PRIMARY KEY,
-                        "label" TEXT NOT NULL
-                    );
-                    """#
-            )
+            try await database.withConnection { connection in
 
-            let label = "alpha"
-
-            try await database.execute(
-                query: #"""
-                    INSERT INTO "\#(unescaped: table)"
-                        ("id", "label")
-                    VALUES
-                        (1, \#(label));
-                    """#
-            )
-
-            let result =
-                try await database.execute(
+                try await connection.run(
                     query: #"""
-                        SELECT "label"
-                        FROM "\#(unescaped: table)"
-                        WHERE "id" = 1;
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
                         """#
                 )
-                .collect()
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "label" TEXT NOT NULL
+                        );
+                        """#
+                )
 
-            #expect(result.count == 1)
-            #expect(
-                try result[0].decode(column: "label", as: String.self)
-                    == "alpha"
-            )
+                let label = "alpha"
+
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "label")
+                        VALUES
+                            (1, \#(label));
+                        """#
+                )
+
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "label"
+                            FROM "\#(unescaped: table)"
+                            WHERE "id" = 1;
+                            """#
+                    ) { $0 }
+
+                #expect(result.count == 1)
+                #expect(
+                    try result[0].decode(column: "label", as: String.self)
+                        == "alpha"
+                )
+            }
         }
     }
 
@@ -512,65 +553,52 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "numbers_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" INTEGER NOT NULL PRIMARY KEY,
-                        "value" TEXT NOT NULL
-                    );
-                    """#
-            )
+            try await database.withConnection { connection in
+                try await connection.run(
+                    query: #"""
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
+                        """#
+                )
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "value" TEXT NOT NULL
+                        );
+                        """#
+                )
 
-            try await database.execute(
-                query: #"""
-                    INSERT INTO "\#(unescaped: table)"
-                        ("id", "value")
-                    VALUES
-                        (1, 'one'),
-                        (2, 'two');
-                    """#
-            )
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "value")
+                        VALUES
+                            (1, 'one'),
+                            (2, 'two');
+                        """#
+                )
 
-            let result = try await database.execute(
-                query: #"""
-                    SELECT "id", "value"
-                    FROM "\#(unescaped: table)"
-                    ORDER BY "id";
-                    """#
-            )
+                let result = try await connection.run(
+                    query: #"""
+                        SELECT "id", "value"
+                        FROM "\#(unescaped: table)"
+                        ORDER BY "id";
+                        """#
+                ) { $0 }
 
-            var iterator = result.makeAsyncIterator()
-            let first = try await iterator.next()
-            let second = try await iterator.next()
-            let third = try await iterator.next()
+                #expect(result.count == 2)
+                let first = result[0]
+                let second = result[1]
 
-            #expect(first != nil)
-            #expect(second != nil)
-            #expect(third == nil)
-
-            if let first {
                 #expect(try first.decode(column: "id", as: Int.self) == 1)
                 #expect(
                     try first.decode(column: "value", as: String.self) == "one"
                 )
-            }
-            else {
-                Issue.record("Expected first iterator element to exist.")
-            }
 
-            if let second {
                 #expect(try second.decode(column: "id", as: Int.self) == 2)
                 #expect(
                     try second.decode(column: "value", as: String.self) == "two"
                 )
-            }
-            else {
-                Issue.record("Expected second iterator element to exist.")
             }
         }
     }
@@ -581,44 +609,48 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "widgets_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" SERIAL PRIMARY KEY,
-                        "name" TEXT NOT NULL
-                    );
-                    """#
-            )
+            try await database.withConnection { connection in
 
-            try await database.execute(
-                query: #"""
-                    INSERT INTO "\#(unescaped: table)"
-                        ("name")
-                    VALUES
-                        ('alpha'),
-                        ('beta');
-                    """#
-            )
+                try await connection.run(
+                    query: #"""
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
+                        """#
+                )
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" SERIAL PRIMARY KEY,
+                            "name" TEXT NOT NULL
+                        );
+                        """#
+                )
 
-            let result = try await database.execute(
-                query: #"""
-                    SELECT "name"
-                    FROM "\#(unescaped: table)"
-                    ORDER BY "id" ASC;
-                    """#
-            )
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("name")
+                        VALUES
+                            ('alpha'),
+                            ('beta');
+                        """#
+                )
 
-            let first = try await result.collectFirst()
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "name"
+                            FROM "\#(unescaped: table)"
+                            ORDER BY "id" ASC;
+                            """#
+                    ) { $0 }
+                    .first
 
-            #expect(first != nil)
-            #expect(
-                try first?.decode(column: "name", as: String.self) == "alpha"
-            )
+                #expect(result != nil)
+                #expect(
+                    try result?.decode(column: "name", as: String.self)
+                        == "alpha"
+                )
+            }
         }
     }
 
@@ -628,120 +660,125 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "items_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" INTEGER NOT NULL PRIMARY KEY,
-                        "name" TEXT NOT NULL
-                    );
-                    """#
-            )
+            try await database.withConnection { connection in
 
-            try await database.transaction { connection in
-                try await connection.execute(
+                try await connection.run(
                     query: #"""
-                        INSERT INTO "\#(unescaped: table)"
-                            ("id", "name")
-                        VALUES
-                            (1, 'widget');
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
                         """#
+                )
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "name" TEXT NOT NULL
+                        );
+                        """#
+                )
+
+                try await database.withTransaction { connection in
+                    try await connection.run(
+                        query: #"""
+                            INSERT INTO "\#(unescaped: table)"
+                                ("id", "name")
+                            VALUES
+                                (1, 'widget');
+                            """#
+                    )
+                }
+
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "name"
+                            FROM "\#(unescaped: table)"
+                            WHERE "id" = 1;
+                            """#
+                    ) { $0 }
+
+                #expect(result.count == 1)
+                #expect(
+                    try result[0].decode(column: "name", as: String.self)
+                        == "widget"
                 )
             }
-
-            let result =
-                try await database.execute(
-                    query: #"""
-                        SELECT "name"
-                        FROM "\#(unescaped: table)"
-                        WHERE "id" = 1;
-                        """#
-                )
-                .collect()
-
-            #expect(result.count == 1)
-            #expect(
-                try result[0].decode(column: "name", as: String.self)
-                    == "widget"
-            )
         }
     }
 
     @Test
     func transactionFailurePropagates() async throws {
         try await runUsingTestDatabaseClient { database in
+
             let suffix = randomTableSuffix()
             let table = "dummy_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" INTEGER NOT NULL PRIMARY KEY,
-                        "name" TEXT NOT NULL
-                    );
-                    """#
-            )
+            try await database.withConnection { connection in
 
-            do {
-                _ = try await database.transaction { connection in
-                    try await connection.execute(
-                        query: #"""
-                            INSERT INTO "\#(unescaped: table)"
-                                ("id", "name")
-                            VALUES
-                                (1, 'ok');
-                            """#
-                    )
-
-                    return try await connection.execute(
-                        query: #"""
-                            INSERT INTO "\#(unescaped: table)"
-                                ("id", "name")
-                            VALUES
-                                (2, NULL);
-                            """#
-                    )
-                }
-                Issue.record(
-                    "Expected database transaction error to be thrown."
-                )
-            }
-            catch DatabaseError.transaction(let error) {
-                #expect(error.beginError == nil)
-                #expect(error.closureError != nil)
-                #expect(
-                    error.closureError.debugDescription.contains(
-                        "null value in column"
-                    )
-                )
-                #expect(error.rollbackError == nil)
-                #expect(error.commitError == nil)
-            }
-            catch {
-                Issue.record(
-                    "Expected database transaction error to be thrown."
-                )
-            }
-
-            let result =
-                try await database.execute(
+                try await connection.run(
                     query: #"""
-                        SELECT "id"
-                        FROM "\#(unescaped: table)";
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
                         """#
                 )
-                .collect()
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "name" TEXT NOT NULL
+                        );
+                        """#
+                )
 
-            #expect(result.isEmpty)
+                do {
+                    _ = try await database.withTransaction { connection in
+                        try await connection.run(
+                            query: #"""
+                                INSERT INTO "\#(unescaped: table)"
+                                    ("id", "name")
+                                VALUES
+                                    (1, 'ok');
+                                """#
+                        )
+
+                        return try await connection.run(
+                            query: #"""
+                                INSERT INTO "\#(unescaped: table)"
+                                    ("id", "name")
+                                VALUES
+                                    (2, NULL);
+                                """#
+                        )
+                    }
+                    Issue.record(
+                        "Expected database transaction error to be thrown."
+                    )
+                }
+                catch DatabaseError.transaction(let error) {
+                    #expect(error.beginError == nil)
+                    #expect(error.closureError != nil)
+                    #expect(
+                        error.closureError.debugDescription.contains(
+                            "null value in column"
+                        )
+                    )
+                    #expect(error.rollbackError == nil)
+                    #expect(error.commitError == nil)
+                }
+                catch {
+                    Issue.record(
+                        "Expected database transaction error to be thrown."
+                    )
+                }
+
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "id"
+                            FROM "\#(unescaped: table)";
+                            """#
+                    ) { $0 }
+
+                #expect(result.isEmpty)
+            }
         }
     }
 
@@ -756,42 +793,45 @@ struct FeatherPostgresDatabaseTestSuite {
                 case missingRow
             }
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" TEXT NOT NULL PRIMARY KEY,
-                        "access_token" TEXT NOT NULL,
-                        "access_expires_at" TIMESTAMPTZ NOT NULL,
-                        "refresh_token" TEXT NOT NULL,
-                        "refresh_count" INTEGER NOT NULL DEFAULT 0
-                    );
-                    """#
-            )
+            try await database.withConnection { connection in
 
-            // set an expired token
-            try await database.execute(
-                query: #"""
-                    INSERT INTO "\#(unescaped: table)"
-                        ("id", "access_token", "access_expires_at", "refresh_token", "refresh_count")
-                    VALUES
-                        (
-                            \#(sessionID),
-                            'stale',
-                            NOW() - INTERVAL '5 minutes',
-                            'refresh',
-                            0
+                try await connection.run(
+                    query: #"""
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
+                        """#
+                )
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" TEXT NOT NULL PRIMARY KEY,
+                            "access_token" TEXT NOT NULL,
+                            "access_expires_at" TIMESTAMPTZ NOT NULL,
+                            "refresh_token" TEXT NOT NULL,
+                            "refresh_count" INTEGER NOT NULL DEFAULT 0
                         );
-                    """#
-            )
+                        """#
+                )
+
+                // set an expired token
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "access_token", "access_expires_at", "refresh_token", "refresh_count")
+                        VALUES
+                            (
+                                \#(sessionID),
+                                'stale',
+                                NOW() - INTERVAL '5 minutes',
+                                'refresh',
+                                0
+                            );
+                        """#
+                )
+            }
 
             func getValidAccessToken(sessionID: String) async throws -> String {
-                try await database.transaction { connection in
-                    let result = try await connection.execute(
+                try await database.withTransaction { connection in
+                    let rows = try await connection.run(
                         query: #"""
                             SELECT
                                 "access_token",
@@ -801,8 +841,7 @@ struct FeatherPostgresDatabaseTestSuite {
                             WHERE "id" = \#(sessionID)
                             FOR UPDATE;
                             """#
-                    )
-                    let rows = try await result.collect()
+                    ) { $0 }
 
                     guard let row = rows.first else {
                         throw TestError.missingRow
@@ -830,7 +869,7 @@ struct FeatherPostgresDatabaseTestSuite {
 
                     try await Task.sleep(for: .milliseconds(40))
 
-                    _ = try await connection.execute(
+                    try await connection.run(
                         query: #"""
                             UPDATE "\#(unescaped: table)"
                             SET
@@ -860,32 +899,46 @@ struct FeatherPostgresDatabaseTestSuite {
 
             #expect(Set(tokens).count == 1)
 
-            let result =
-                try await database.execute(
-                    query: #"""
-                        SELECT
-                            "access_token",
-                            "refresh_count",
-                            "access_expires_at" > NOW() AS "is_valid"
-                        FROM "\#(unescaped: table)"
-                        WHERE "id" = \#(sessionID);
-                        """#
-                )
-                .collect()
+            struct SessionRow: Codable, Sendable {
+                let refreshCount: Int
+                let accessToken: String
+                let isValid: Bool
 
-            #expect(result.count == 1)
-            #expect(
-                try result[0].decode(column: "refresh_count", as: Int.self)
-                    == 1
-            )
-            #expect(
-                try result[0].decode(column: "access_token", as: String.self)
-                    == "token_1"
-            )
-            #expect(
-                try result[0].decode(column: "is_valid", as: Bool.self)
-                    == true
-            )
+                init(_ row: PostgresRow) throws {
+                    self.refreshCount = try row.decode(
+                        column: "refresh_count",
+                        as: Int.self
+                    )
+                    self.accessToken = try row.decode(
+                        column: "access_token",
+                        as: String.self
+                    )
+                    self.isValid = try row.decode(
+                        column: "is_valid",
+                        as: Bool.self
+                    )
+                }
+            }
+
+            try await database.withConnection { connection in
+
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT
+                                "access_token",
+                                "refresh_count",
+                                "access_expires_at" > NOW() AS "is_valid"
+                            FROM "\#(unescaped: table)"
+                            WHERE "id" = \#(sessionID);
+                            """#,
+                    ) { try SessionRow($0) }
+
+                #expect(result.count == 1)
+                #expect(result[0].refreshCount == 1)
+                #expect(result[0].accessToken == "token_1")
+                #expect(result[0].isValid)
+            }
         }
     }
 
@@ -895,46 +948,48 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "measurements_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" INTEGER NOT NULL PRIMARY KEY,
-                        "value" DOUBLE PRECISION NOT NULL
-                    );
-                    """#
-            )
+            try await database.withConnection { connection in
 
-            let expected = 1.5
-
-            try await database.execute(
-                query: #"""
-                    INSERT INTO "\#(unescaped: table)"
-                        ("id", "value")
-                    VALUES
-                        (1, \#(expected));
-                    """#
-            )
-
-            let result =
-                try await database.execute(
+                try await connection.run(
                     query: #"""
-                        SELECT "value"
-                        FROM "\#(unescaped: table)"
-                        WHERE "id" = 1;
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
                         """#
                 )
-                .collect()
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "value" DOUBLE PRECISION NOT NULL
+                        );
+                        """#
+                )
 
-            #expect(result.count == 1)
-            #expect(
-                try result[0].decode(column: "value", as: Double.self)
-                    == expected
-            )
+                let expected = 1.5
+
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "value")
+                        VALUES
+                            (1, \#(expected));
+                        """#
+                )
+
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "value"
+                            FROM "\#(unescaped: table)"
+                            WHERE "id" = 1;
+                            """#
+                    ) { $0 }
+
+                #expect(result.count == 1)
+                #expect(
+                    try result[0].decode(column: "value", as: Double.self)
+                        == expected
+                )
+            }
         }
     }
 
@@ -944,51 +999,53 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "items_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" INTEGER NOT NULL PRIMARY KEY,
-                        "value" TEXT
-                    );
-                    """#
-            )
+            try await database.withConnection { connection in
 
-            try await database.execute(
-                query: #"""
-                    INSERT INTO "\#(unescaped: table)"
-                        ("id", "value")
-                    VALUES
-                        (1, 'abc');
-                    """#
-            )
-
-            let result =
-                try await database.execute(
+                try await connection.run(
                     query: #"""
-                        SELECT "id"
-                        FROM "\#(unescaped: table)";
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
                         """#
                 )
-                .collect()
-
-            #expect(result.count == 1)
-
-            do {
-                _ = try result[0].decode(column: "value", as: String.self)
-                Issue.record("Expected decoding a missing column to throw.")
-            }
-            catch DecodingError.dataCorrupted {
-
-            }
-            catch {
-                Issue.record(
-                    "Expected a dataCorrupted error for missing column."
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "value" TEXT
+                        );
+                        """#
                 )
+
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "value")
+                        VALUES
+                            (1, 'abc');
+                        """#
+                )
+
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "id"
+                            FROM "\#(unescaped: table)";
+                            """#
+                    ) { $0 }
+
+                #expect(result.count == 1)
+
+                do {
+                    _ = try result[0].decode(column: "value", as: String.self)
+                    Issue.record("Expected decoding a missing column to throw.")
+                }
+                catch DecodingError.dataCorrupted {
+
+                }
+                catch {
+                    Issue.record(
+                        "Expected a dataCorrupted error for missing column."
+                    )
+                }
             }
         }
     }
@@ -999,51 +1056,53 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "items_\(suffix)"
 
-            try await database.execute(
-                query: #"""
-                    DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
-                    """#
-            )
-            try await database.execute(
-                query: #"""
-                    CREATE TABLE "\#(unescaped: table)" (
-                        "id" INTEGER NOT NULL PRIMARY KEY,
-                        "value" TEXT
-                    );
-                    """#
-            )
+            try await database.withConnection { connection in
 
-            try await database.execute(
-                query: #"""
-                    INSERT INTO "\#(unescaped: table)"
-                        ("id", "value")
-                    VALUES
-                        (1, 'abc');
-                    """#
-            )
-
-            let result =
-                try await database.execute(
+                try await connection.run(
                     query: #"""
-                        SELECT "value"
-                        FROM "\#(unescaped: table)";
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
                         """#
                 )
-                .collect()
-
-            #expect(result.count == 1)
-
-            do {
-                _ = try result[0].decode(column: "value", as: Int.self)
-                Issue.record("Expected decoding a string as Int to throw.")
-            }
-            catch DecodingError.typeMismatch {
-
-            }
-            catch {
-                Issue.record(
-                    "Expected a typeMismatch error when decoding a string as Int."
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "value" TEXT
+                        );
+                        """#
                 )
+
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "value")
+                        VALUES
+                            (1, 'abc');
+                        """#
+                )
+
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "value"
+                            FROM "\#(unescaped: table)";
+                            """#
+                    ) { $0 }
+
+                #expect(result.count == 1)
+
+                do {
+                    _ = try result[0].decode(column: "value", as: Int.self)
+                    Issue.record("Expected decoding a string as Int to throw.")
+                }
+                catch DecodingError.typeMismatch {
+
+                }
+                catch {
+                    Issue.record(
+                        "Expected a typeMismatch error when decoding a string as Int."
+                    )
+                }
             }
         }
     }
@@ -1054,22 +1113,25 @@ struct FeatherPostgresDatabaseTestSuite {
             let suffix = randomTableSuffix()
             let table = "missing_table_\(suffix)"
 
-            do {
-                _ = try await database.execute(
-                    query: #"""
-                        SELECT *
-                        FROM "\#(unescaped: table)";
-                        """#
-                )
-                Issue.record("Expected query to fail for missing table.")
-            }
-            catch DatabaseError.query(let error) {
-                #expect(
-                    String(reflecting: error).contains("does not exist")
-                )
-            }
-            catch {
-                Issue.record("Expected database query error to be thrown.")
+            try await database.withConnection { connection in
+
+                do {
+                    _ = try await connection.run(
+                        query: #"""
+                            SELECT *
+                            FROM "\#(unescaped: table)";
+                            """#
+                    )
+                    Issue.record("Expected query to fail for missing table.")
+                }
+                catch DatabaseError.query(let error) {
+                    #expect(
+                        String(reflecting: error).contains("does not exist")
+                    )
+                }
+                catch {
+                    Issue.record("Expected database query error to be thrown.")
+                }
             }
         }
     }
@@ -1077,21 +1139,26 @@ struct FeatherPostgresDatabaseTestSuite {
     @Test
     func versionCheck() async throws {
         try await runUsingTestDatabaseClient { database in
-            let result = try await database.execute(
-                query: #"""
-                    SELECT
-                        version() AS "version"
-                    WHERE
-                        1=\#(1);
-                    """#
-            )
+            try await database.withConnection { connection in
 
-            let resultArray = try await result.collect()
-            #expect(resultArray.count == 1)
+                let result = try await connection.run(
+                    query: #"""
+                        SELECT
+                            version() AS "version"
+                        WHERE
+                            1=\#(1);
+                        """#
+                ) { $0 }
 
-            let item = resultArray[0]
-            let version = try item.decode(column: "version", as: String.self)
-            #expect(version.contains("PostgreSQL"))
+                #expect(result.count == 1)
+
+                let item = result[0]
+                let version = try item.decode(
+                    column: "version",
+                    as: String.self
+                )
+                #expect(version.contains("PostgreSQL"))
+            }
         }
     }
 }

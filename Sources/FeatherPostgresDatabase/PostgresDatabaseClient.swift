@@ -18,6 +18,7 @@ extension PostgresTransactionError: @retroactive DatabaseTransactionError {}
 ///
 /// Use this client to execute queries and manage transactions on Postgres.
 public struct PostgresDatabaseClient: DatabaseClient {
+    public typealias Connection = PostgresConnection
 
     var client: PostgresClient
     var logger: Logger
@@ -47,9 +48,9 @@ public struct PostgresDatabaseClient: DatabaseClient {
     /// - Throws: A `DatabaseError` if connection handling fails.
     /// - Returns: The query result produced by the closure.
     @discardableResult
-    public func connection<T>(
+    public func withConnection<T>(
         isolation: isolated (any Actor)? = #isolation,
-        _ closure: (PostgresConnection) async throws -> sending T,
+        _ closure: (Connection) async throws -> sending T,
     ) async throws(DatabaseError) -> sending T {
         do {
             return try await client.withConnection(closure)
@@ -71,9 +72,9 @@ public struct PostgresDatabaseClient: DatabaseClient {
     /// - Throws: A `DatabaseError` if the transaction fails.
     /// - Returns: The query result produced by the closure.
     @discardableResult
-    public func transaction<T>(
+    public func withTransaction<T>(
         isolation: isolated (any Actor)? = #isolation,
-        _ closure: ((PostgresConnection) async throws -> sending T),
+        _ closure: (Connection) async throws -> sending T,
     ) async throws(DatabaseError) -> sending T {
         do {
             return try await client.withTransaction(

@@ -59,17 +59,4 @@ public struct PostgresQueryResult: DatabaseQueryResult {
             backingIterator: backingSequence.makeAsyncIterator(),
         )
     }
-
-    /// Collect all rows into an array.
-    ///
-    /// This consumes the sequence and returns all rows.
-    /// - Throws: An error if iteration fails.
-    /// - Returns: An array of `PostgresRow` values.
-    public func collect() async throws -> [PostgresRow] {
-        var items: [PostgresRow] = []
-        for try await item in self {
-            items.append(item)
-        }
-        return items
-    }
 }

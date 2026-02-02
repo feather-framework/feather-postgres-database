@@ -9,6 +9,8 @@ import FeatherDatabase
 import PostgresNIO
 
 extension PostgresConnection: @retroactive DatabaseConnection {
+    public typealias Query = PostgresQuery
+    public typealias Result = PostgresQueryResult
 
     /// Execute a Postgres query on this connection.
     ///
@@ -17,21 +19,51 @@ extension PostgresConnection: @retroactive DatabaseConnection {
     /// - Throws: A `DatabaseError` if the query fails.
     /// - Returns: A query result containing the returned rows.
     @discardableResult
-    public func execute(
-        query: PostgresQuery
-    ) async throws(DatabaseError) -> PostgresQueryResult {
+    public func run<T: Sendable>(
+        query: Query,
+        _ handler: (Result.Row) async throws -> T = { $0 }
+    ) async throws(DatabaseError) -> [T] {
         do {
-            let result = try await self.query(
+            let resultSequence = try await self.query(
                 .init(
                     unsafeSQL: query.sql,
                     binds: query.bindings
                 ),
                 logger: logger
             )
-            return PostgresQueryResult(backingSequence: result)
+
+            var result: [T] = []
+            for try await item in resultSequence {
+                result.append(try await handler(item))
+            }
+            return result
         }
         catch {
-            throw DatabaseError.query(error)
+            throw .query(error)
+        }
+
+    }
+
+    public func run(
+        query: Query,
+        _ handler: (Result.Row) async throws -> Void = { _ in }
+    ) async throws(DatabaseError) {
+        do {
+            let resultSequence = try await self.query(
+                .init(
+                    unsafeSQL: query.sql,
+                    binds: query.bindings
+                ),
+                logger: logger
+            )
+
+            for try await item in resultSequence {
+                try await handler(item)
+            }
+        }
+        catch {
+            throw .query(error)
         }
     }
+
 }
