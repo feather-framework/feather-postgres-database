@@ -41,8 +41,119 @@ extension PostgresDatabaseQuery: ExpressibleByStringInterpolation {
     }
 
     public init(
-        stringInterpolation value: PostgresQuery.StringInterpolation
+        stringInterpolation value: StringInterpolation
     ) {
-        self.init(query: .init(stringInterpolation: value))
+        self.init(
+            query: .init(
+                unsafeSQL: value.sql,
+                binds: value.binds
+            )
+        )
+    }
+}
+
+extension PostgresDatabaseQuery {
+
+    // NOTE: source derived from postgres-nio
+    public struct StringInterpolation: StringInterpolationProtocol, Sendable {
+        public typealias StringLiteralType = String
+
+        @usableFromInline
+        var sql: String
+
+        @usableFromInline
+        var binds: PostgresBindings
+
+        public init(
+            literalCapacity: Int,
+            interpolationCount: Int
+        ) {
+            self.sql = ""
+            self.binds = PostgresBindings(capacity: interpolationCount)
+        }
+
+        public mutating func appendLiteral(
+            _ literal: String
+        ) {
+            self.sql.append(contentsOf: literal)
+        }
+
+        @inlinable
+        public mutating func appendInterpolation<
+            Value: PostgresThrowingDynamicTypeEncodable
+        >(
+            _ value: Value
+        ) throws {
+            try self.binds.append(value, context: .default)
+            self.sql.append(contentsOf: "$\(self.binds.count)")
+        }
+
+        @inlinable
+        public mutating func appendInterpolation<
+            Value: PostgresThrowingDynamicTypeEncodable
+        >(
+            _ value: Value?
+        ) throws {
+            switch value {
+            case .none:
+                self.binds.appendNull()
+            case .some(let value):
+                try self.binds.append(value, context: .default)
+            }
+
+            self.sql.append(contentsOf: "$\(self.binds.count)")
+        }
+
+        @inlinable
+        public mutating func appendInterpolation<
+            Value: PostgresDynamicTypeEncodable
+        >(
+            _ value: Value
+        ) {
+            self.binds.append(value, context: .default)
+            self.sql.append(contentsOf: "$\(self.binds.count)")
+        }
+
+        @inlinable
+        public mutating func appendInterpolation<
+            Value: PostgresDynamicTypeEncodable
+        >(
+            _ value: Value?
+        ) {
+            switch value {
+            case .none:
+                self.binds.appendNull()
+            case .some(let value):
+                self.binds.append(value, context: .default)
+            }
+
+            self.sql.append(contentsOf: "$\(self.binds.count)")
+        }
+
+        @inlinable
+        public mutating func appendInterpolation<
+            Value: PostgresThrowingDynamicTypeEncodable,
+            JSONEncoder: PostgresJSONEncoder
+        >(
+            _ value: Value,
+            context: PostgresEncodingContext<JSONEncoder>
+        ) throws {
+            try self.binds.append(value, context: context)
+            self.sql.append(contentsOf: "$\(self.binds.count)")
+        }
+
+        @inlinable
+        public mutating func appendInterpolation(
+            unescaped interpolated: String
+        ) {
+            self.sql.append(contentsOf: interpolated)
+        }
+
+        @inlinable
+        public mutating func appendInterpolation(
+            unescaped interpolated: Int
+        ) {
+            self.sql.append(contentsOf: String(interpolated))
+        }
     }
 }
