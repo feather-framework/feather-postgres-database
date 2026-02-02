@@ -83,7 +83,11 @@ public struct PostgresDatabaseClient: DatabaseClient {
             }
         }
         catch let error as PostgresTransactionError {
-            throw .transaction(error)
+            throw .transaction(
+                PostgresDatabaseTransactionError(
+                    underlyingError: error
+                )
+            )
         }
         catch {
             throw .connection(error)
