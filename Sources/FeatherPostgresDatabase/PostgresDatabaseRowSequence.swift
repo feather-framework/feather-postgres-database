@@ -1,8 +1,8 @@
 //
-//  PostgresQueryResult.swift
+//  PostgresDatabaseRowSequence.swift
 //  feather-postgres-database
 //
-//  Created by Tibor Bödecs on 2026. 01. 10..
+//  Created by Tibor Bödecs on 2026. 01. 10.
 //
 
 import FeatherDatabase
