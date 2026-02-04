@@ -9,17 +9,13 @@ import FeatherDatabase
 import Logging
 import PostgresNIO
 
-/// Make Postgres transaction errors conform to `DatabaseTransactionError`.
-///
-/// This allows Postgres errors to flow through `DatabaseError`.
-extension PostgresTransactionError: @retroactive DatabaseTransactionError {}
-
 /// A Postgres-backed database client.
 ///
 /// Use this client to execute queries and manage transactions on Postgres.
 public struct PostgresDatabaseClient: DatabaseClient {
+    public typealias Connection = PostgresDatabaseConnection
 
-    var client: PostgresClient
+    var client: PostgresNIO.PostgresClient
     var logger: Logger
 
     /// Create a Postgres database client.
@@ -29,7 +25,7 @@ public struct PostgresDatabaseClient: DatabaseClient {
     ///   - client: The underlying Postgres client.
     ///   - logger: The logger for database operations.
     public init(
-        client: PostgresClient,
+        client: PostgresNIO.PostgresClient,
         logger: Logger
     ) {
         self.client = client
@@ -41,18 +37,21 @@ public struct PostgresDatabaseClient: DatabaseClient {
     /// Execute work using a managed Postgres connection.
     ///
     /// The closure receives a Postgres connection for the duration of the call.
-    /// - Parameters:
-    ///   - isolation: The actor isolation for the operation.
-    ///   - closure: A closure that receives the connection.
+    /// - Parameter: closure: A closure that receives the connection.
     /// - Throws: A `DatabaseError` if connection handling fails.
     /// - Returns: The query result produced by the closure.
     @discardableResult
-    public func connection<T>(
-        isolation: isolated (any Actor)? = #isolation,
-        _ closure: (PostgresConnection) async throws -> sending T,
-    ) async throws(DatabaseError) -> sending T {
+    public func withConnection<T>(
+        _ closure: (Connection) async throws -> T,
+    ) async throws(DatabaseError) -> T {
         do {
-            return try await client.withConnection(closure)
+            return try await client.withConnection { connection in
+                let databaseConnection = PostgresDatabaseConnection(
+                    connection: connection,
+                    logger: logger
+                )
+                return try await closure(databaseConnection)
+            }
         }
         catch let error as DatabaseError {
             throw error
@@ -65,25 +64,30 @@ public struct PostgresDatabaseClient: DatabaseClient {
     /// Execute work inside a Postgres transaction.
     ///
     /// The closure is wrapped in a transactional scope.
-    /// - Parameters:
-    ///   - isolation: The actor isolation for the operation.
-    ///   - closure: A closure that receives the connection.
+    /// - Parameter: closure: A closure that receives the connection.
     /// - Throws: A `DatabaseError` if the transaction fails.
     /// - Returns: The query result produced by the closure.
     @discardableResult
-    public func transaction<T>(
-        isolation: isolated (any Actor)? = #isolation,
-        _ closure: ((PostgresConnection) async throws -> sending T),
-    ) async throws(DatabaseError) -> sending T {
+    public func withTransaction<T>(
+        _ closure: (Connection) async throws -> T,
+    ) async throws(DatabaseError) -> T {
         do {
             return try await client.withTransaction(
-                logger: logger,
-                isolation: isolation,
-                closure
-            )
+                logger: logger
+            ) { connection in
+                let databaseConnection = PostgresDatabaseConnection(
+                    connection: connection,
+                    logger: logger
+                )
+                return try await closure(databaseConnection)
+            }
         }
         catch let error as PostgresTransactionError {
-            throw .transaction(error)
+            throw .transaction(
+                PostgresDatabaseTransactionError(
+                    underlyingError: error
+                )
+            )
         }
         catch {
             throw .connection(error)
