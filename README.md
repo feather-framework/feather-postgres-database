@@ -49,16 +49,16 @@ Then add `FeatherPostgresDatabase` to your target dependencies:
 
 ## Usage
  
+API documentation is available at the link below:
+ 
 [
     ![DocC API documentation](https://img.shields.io/badge/DocC-API_documentation-F05138)
 ](
     https://feather-framework.github.io/feather-postgres-database/documentation/featherpostgresdatabase/
 )
 
-API documentation is available at the following link. 
+Here is a brief example: 
 
-> [!TIP]
-> Avoid calling `database.execute` while in a transaction; use the transaction `connection` instead.
 
 ```swift
 import Logging
@@ -100,14 +100,16 @@ try await withThrowingTaskGroup(of: Void.self) { group in
     }
     // execute some query
     group.addTask {
-        let result = try await database.execute(
-            query: #"""
-                SELECT
-                    version() AS "version"
-                WHERE
-                    1=\#(1);
-                """#
-        )
+        let result = try await database.withConnection { connection in
+            try await connection.run(
+                query: #"""
+                    SELECT
+                        version() AS "version"
+                    WHERE
+                        1=\#(1);
+                    """#
+            )
+        }
 
         for try await item in result {
             let version = try item.decode(column: "version", as: String.self)

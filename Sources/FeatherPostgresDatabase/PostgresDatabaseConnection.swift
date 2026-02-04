@@ -27,7 +27,7 @@ public struct PostgresDatabaseConnection: DatabaseConnection {
     @discardableResult
     public func run<T: Sendable>(
         query: Query,
-        _ handler: (RowSequence) async throws -> T = { _ in }
+        _ handler: (RowSequence) async throws -> T = { $0 }
     ) async throws(DatabaseError) -> T {
         do {
             let sequence = try await connection.query(
