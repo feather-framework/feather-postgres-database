@@ -8,9 +8,38 @@
 import FeatherDatabase
 import PostgresNIO
 
+extension DatabaseQuery {
+
+    fileprivate func toPostgresQuery() -> PostgresQuery {
+        var postgresUnsafeSQL = sql
+        var postgresBindings: PostgresBindings = .init()
+
+        for binding in bindings {
+            /// postgres binding index starts with 1
+            let idx = binding.index + 1
+            postgresUnsafeSQL =
+                postgresUnsafeSQL
+                .replacing("{{\(idx)}}", with: "$\(idx)")
+
+            switch binding.binding {
+            case .int(let value):
+                postgresBindings.append(value)
+            case .double(let value):
+                postgresBindings.append(value)
+            case .string(let value):
+                postgresBindings.append(value)
+            }
+        }
+
+        return .init(
+            unsafeSQL: postgresUnsafeSQL,
+            binds: postgresBindings
+        )
+    }
+}
+
 public struct PostgresDatabaseConnection: DatabaseConnection {
 
-    public typealias Query = PostgresDatabaseQuery
     public typealias RowSequence = PostgresDatabaseRowSequence
 
     var connection: PostgresConnection
@@ -26,15 +55,12 @@ public struct PostgresDatabaseConnection: DatabaseConnection {
     /// - Returns: A query result containing the returned rows.
     @discardableResult
     public func run<T: Sendable>(
-        query: Query,
+        query: DatabaseQuery,
         _ handler: (RowSequence) async throws -> T = { $0 }
     ) async throws(DatabaseError) -> T {
         do {
             let sequence = try await connection.query(
-                .init(
-                    unsafeSQL: query.sql,
-                    binds: query.bindings
-                ),
+                query.toPostgresQuery(),
                 logger: logger
             )
 
