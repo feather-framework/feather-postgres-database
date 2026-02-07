@@ -8,16 +8,17 @@
 import FeatherDatabase
 import PostgresNIO
 
-private extension Query {
-    
-    func toPostgresQuery() -> PostgresQuery {
+extension Query {
+
+    fileprivate func toPostgresQuery() -> PostgresQuery {
         var postgresUnsafeSQL = sql
         var postgresBindings: PostgresBindings = .init()
 
         for binding in bindings {
             /// postgres binding index starts with 1
             let idx = binding.index + 1
-            postgresUnsafeSQL = postgresUnsafeSQL
+            postgresUnsafeSQL =
+                postgresUnsafeSQL
                 .replacing("{{\(idx)}}", with: "$\(idx)")
 
             switch binding.binding {
