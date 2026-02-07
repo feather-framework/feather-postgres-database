@@ -8,7 +8,7 @@
 import FeatherDatabase
 import PostgresNIO
 
-extension Query {
+extension DatabaseQuery {
 
     fileprivate func toPostgresQuery() -> PostgresQuery {
         var postgresUnsafeSQL = sql
@@ -55,7 +55,7 @@ public struct PostgresDatabaseConnection: DatabaseConnection {
     /// - Returns: A query result containing the returned rows.
     @discardableResult
     public func run<T: Sendable>(
-        query: Query,
+        query: DatabaseQuery,
         _ handler: (RowSequence) async throws -> T = { $0 }
     ) async throws(DatabaseError) -> T {
         do {
