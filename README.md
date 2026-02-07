@@ -2,7 +2,11 @@
 
 Postgres driver implementation for the abstract [Feather Database](https://github.com/feather-framework/feather-database) Swift API package.
 
-[![Release: 1.0.0-beta.3](https://img.shields.io/badge/Release-1%2E0%2E0--beta%2E3-F05138)](https://github.com/feather-framework/feather-postgres-database/releases/tag/1.0.0-beta.3)
+[
+    ![Release: 1.0.0-beta.3](https://img.shields.io/badge/Release-1%2E0%2E0--beta%2E3-F05138)
+](
+    https://github.com/feather-framework/feather-postgres-database/releases/tag/1.0.0-beta.3
+)
 
 ## Features
 
