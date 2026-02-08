@@ -22,6 +22,8 @@ extension DatabaseQuery {
                 .replacing("{{\(idx)}}", with: "$\(idx)")
 
             switch binding.binding {
+            case .bool(let value):
+                postgresBindings.append(value)
             case .int(let value):
                 postgresBindings.append(value)
             case .double(let value):
