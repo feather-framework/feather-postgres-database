@@ -3,9 +3,9 @@
 Postgres driver implementation for the abstract [Feather Database](https://github.com/feather-framework/feather-database) Swift API package.
 
 [
-    ![Release: 1.0.0-beta.3](https://img.shields.io/badge/Release-1%2E0%2E0--beta%2E3-F05138)
+    ![Release: 1.0.0-beta.4](https://img.shields.io/badge/Release-1%2E0%2E0--beta%2E4-F05138)
 ](
-    https://github.com/feather-framework/feather-postgres-database/releases/tag/1.0.0-beta.3
+    https://github.com/feather-framework/feather-postgres-database/releases/tag/1.0.0-beta.4
 )
 
 ## Features
@@ -37,7 +37,7 @@ Postgres driver implementation for the abstract [Feather Database](https://githu
 Add the dependency to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/feather-framework/feather-postgres-database", exact: "1.0.0-beta.3"),
+.package(url: "https://github.com/feather-framework/feather-postgres-database", exact: "1.0.0-beta.4"),
 ```
 
 Then add `FeatherPostgresDatabase` to your target dependencies:

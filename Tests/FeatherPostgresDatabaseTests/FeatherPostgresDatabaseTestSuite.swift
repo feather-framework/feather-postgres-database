@@ -793,6 +793,35 @@ struct FeatherPostgresDatabaseTestSuite {
     }
 
     @Test
+    func transactionClosureErrorPropagates() async throws {
+        try await runUsingTestDatabaseClient { database in
+            enum TestError: Error, Equatable {
+                case boom
+            }
+
+            do {
+                _ = try await database.withTransaction { _ in
+                    throw TestError.boom
+                }
+                Issue.record("Expected transaction error to be thrown.")
+            }
+            catch DatabaseError.transaction(let error) {
+                #expect(error.beginError == nil)
+                #expect(error.commitError == nil)
+                #expect(error.rollbackError == nil)
+                #expect((error.closureError as? TestError) == .boom)
+                #expect(error.file.isEmpty == false)
+                #expect(error.line > 0)
+            }
+            catch {
+                Issue.record(
+                    "Expected database transaction error to be thrown."
+                )
+            }
+        }
+    }
+
+    @Test
     func concurrentTransactionUpdates() async throws {
         try await runUsingTestDatabaseClient { database in
             let suffix = randomTableSuffix()
@@ -1116,6 +1145,217 @@ struct FeatherPostgresDatabaseTestSuite {
                 catch {
                     Issue.record(
                         "Expected a typeMismatch error when decoding a string as Int."
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    func nullDecodingThrowsTypeMismatch() async throws {
+        try await runUsingTestDatabaseClient { database in
+            let suffix = randomTableSuffix()
+            let table = "nullable_values_\(suffix)"
+
+            try await database.withConnection { connection in
+
+                try await connection.run(
+                    query: #"""
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
+                        """#
+                )
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "value" INTEGER
+                        );
+                        """#
+                )
+
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "value")
+                        VALUES
+                            (1, NULL);
+                        """#
+                )
+
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "value"
+                            FROM "\#(unescaped: table)";
+                            """#
+                    ) { try await $0.collect() }
+
+                #expect(result.count == 1)
+
+                do {
+                    _ = try result[0].decode(column: "value", as: Int.self)
+                    Issue.record("Expected decoding NULL as Int to throw.")
+                }
+                catch let DecodingError.typeMismatch(_, context) {
+                    #expect(
+                        context.debugDescription.contains(
+                            "PostgresDecodingError"
+                        )
+                    )
+                }
+                catch {
+                    Issue.record(
+                        "Expected a typeMismatch error when decoding NULL as Int."
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    func nonPostgresDecodableTypeMismatch() async throws {
+        try await runUsingTestDatabaseClient { database in
+            let suffix = randomTableSuffix()
+            let table = "custom_types_\(suffix)"
+
+            struct CustomValue: Decodable, Sendable {
+                let value: String
+            }
+
+            try await database.withConnection { connection in
+
+                try await connection.run(
+                    query: #"""
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
+                        """#
+                )
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "value" TEXT NOT NULL
+                        );
+                        """#
+                )
+
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "value")
+                        VALUES
+                            (1, 'alpha');
+                        """#
+                )
+
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "value"
+                            FROM "\#(unescaped: table)";
+                            """#
+                    ) { try await $0.collect() }
+
+                #expect(result.count == 1)
+
+                do {
+                    _ = try result[0]
+                        .decode(
+                            column: "value",
+                            as: CustomValue.self
+                        )
+                    Issue.record(
+                        "Expected decoding non-PostgresDecodable type to throw."
+                    )
+                }
+                catch let DecodingError.typeMismatch(_, context) {
+                    #expect(
+                        context.debugDescription.contains(
+                            "Data is not convertible"
+                        )
+                    )
+                }
+                catch {
+                    Issue.record(
+                        "Expected a typeMismatch error for non-PostgresDecodable types."
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    func postgresRowDecodeMetatypeMismatch() async throws {
+        try await runUsingTestDatabaseClient { database in
+            let suffix = randomTableSuffix()
+            let table = "metatype_mismatch_\(suffix)"
+
+            func decodeWithMismatchedMetatype<T: Decodable, U: Decodable>(
+                row: DatabaseRow,
+                column: String,
+                as _: T.Type,
+                using _: U.Type
+            ) throws -> T {
+                // Force a mismatched metatype to exercise the guard cast failure.
+                let mismatchedType = unsafeBitCast(U.self, to: T.Type.self)
+                return try row.decode(column: column, as: mismatchedType)
+            }
+
+            try await database.withConnection { connection in
+
+                try await connection.run(
+                    query: #"""
+                        DROP TABLE IF EXISTS "\#(unescaped: table)" CASCADE;
+                        """#
+                )
+                try await connection.run(
+                    query: #"""
+                        CREATE TABLE "\#(unescaped: table)" (
+                            "id" INTEGER NOT NULL PRIMARY KEY,
+                            "value" TEXT NOT NULL
+                        );
+                        """#
+                )
+
+                try await connection.run(
+                    query: #"""
+                        INSERT INTO "\#(unescaped: table)"
+                            ("id", "value")
+                        VALUES
+                            (1, 'abc');
+                        """#
+                )
+
+                let result =
+                    try await connection.run(
+                        query: #"""
+                            SELECT "value"
+                            FROM "\#(unescaped: table)";
+                            """#
+                    ) { try await $0.collect() }
+
+                #expect(result.count == 1)
+
+                do {
+                    _ = try decodeWithMismatchedMetatype(
+                        row: result[0],
+                        column: "value",
+                        as: Int.self,
+                        using: String.self
+                    )
+                    Issue.record(
+                        "Expected mismatched metatype decode to throw."
+                    )
+                }
+                catch let DecodingError.typeMismatch(_, context) {
+                    #expect(
+                        context.debugDescription.contains(
+                            "Could not convert data"
+                        )
+                    )
+                }
+                catch {
+                    Issue.record(
+                        "Expected a typeMismatch error for metatype mismatch."
                     )
                 }
             }
