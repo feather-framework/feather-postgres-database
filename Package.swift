@@ -11,7 +11,7 @@ var defaultSwiftSettings: [SwiftSetting] =
     // https://forums.swift.org/t/experimental-support-for-lifetime-dependencies-in-swift-6-2-and-beyond/78638
     .enableExperimentalFeature("Lifetimes"),
     // https://github.com/swiftlang/swift/pull/65218
-    .enableExperimentalFeature("AvailabilityMacro=featherPostgresDatabase 1.0:macOS 15.0, iOS 18.0, tvOS 18.0, watchOS 11.0, visionOS 2.0"),
+    .enableExperimentalFeature("AvailabilityMacro=FeatherDatabasePostgres 1.0:macOS 15.0, iOS 18.0, tvOS 18.0, watchOS 11.0, visionOS 2.0"),
 ]
 
 #if compiler(>=6.2)
@@ -23,7 +23,7 @@ defaultSwiftSettings.append(
 
 
 let package = Package(
-    name: "feather-postgres-database",
+    name: "feather-database-postgres",
     platforms: [
         .macOS(.v15),
         .iOS(.v18),
@@ -32,7 +32,7 @@ let package = Package(
         .visionOS(.v2),
     ],
     products: [
-        .library(name: "FeatherPostgresDatabase", targets: ["FeatherPostgresDatabase"]),
+        .library(name: "FeatherDatabasePostgres", targets: ["FeatherDatabasePostgres"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-log", from: "1.6.0"),
@@ -42,7 +42,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "FeatherPostgresDatabase",
+            name: "FeatherDatabasePostgres",
             dependencies: [
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "PostgresNIO", package: "postgres-nio"),
@@ -51,9 +51,9 @@ let package = Package(
             swiftSettings: defaultSwiftSettings
         ),
         .testTarget(
-            name: "FeatherPostgresDatabaseTests",
+            name: "FeatherDatabasePostgresTests",
             dependencies: [
-                .target(name: "FeatherPostgresDatabase"),
+                .target(name: "FeatherDatabasePostgres"),
             ],
             swiftSettings: defaultSwiftSettings
         ),

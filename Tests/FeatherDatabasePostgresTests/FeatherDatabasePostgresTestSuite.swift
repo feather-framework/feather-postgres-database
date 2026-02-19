@@ -1,6 +1,6 @@
 //
-//  FeatherPostgresDatabaseTestSuite.swift
-//  feather-postgres-database
+//  FeatherDatabasePostgresTestSuite.swift
+//  feather-database-postgres
 //
 //  Created by Tibor Bödecs on 2026. 01. 10..
 //
@@ -11,7 +11,7 @@ import NIOSSL
 import PostgresNIO
 import Testing
 
-@testable import FeatherPostgresDatabase
+@testable import FeatherDatabasePostgres
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -20,7 +20,7 @@ import Foundation
 #endif
 
 @Suite
-struct FeatherPostgresDatabaseTestSuite {
+struct FeatherDatabasePostgresTestSuite {
 
     private func randomTableSuffix() -> String {
         let characters = Array("abcdefghijklmnopqrstuvwxyz0123456789")
@@ -34,7 +34,7 @@ struct FeatherPostgresDatabaseTestSuite {
 
     private func runUsingTestDatabaseClient(
         _ closure:
-            @escaping (@Sendable (PostgresDatabaseClient) async throws -> Void)
+            @escaping (@Sendable (DatabaseClientPostgres) async throws -> Void)
     ) async throws {
         var logger = Logger(label: "test")
         logger.logLevel = .info
@@ -66,7 +66,7 @@ struct FeatherPostgresDatabaseTestSuite {
             backgroundLogger: logger
         )
 
-        let database = PostgresDatabaseClient(
+        let database = DatabaseClientPostgres(
             client: client,
             logger: logger
         )

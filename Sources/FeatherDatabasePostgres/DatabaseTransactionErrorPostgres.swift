@@ -1,6 +1,6 @@
 //
-//  PostgresDatabaseTransactionError.swift
-//  feather-postgres-database
+//  DatabaseTransactionErrorPostgres.swift
+//  feather-database-postgres
 //
 //  Created by Tibor Bödecs on 2026. 02. 02..
 //
@@ -8,7 +8,7 @@
 import FeatherDatabase
 import PostgresNIO
 
-public struct PostgresDatabaseTransactionError: DatabaseTransactionError {
+public struct DatabaseTransactionErrorPostgres: DatabaseTransactionError {
 
     var underlyingError: PostgresTransactionError
 

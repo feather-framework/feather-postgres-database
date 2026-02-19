@@ -1,6 +1,6 @@
 //
-//  PostgresDatabaseConnection.swift
-//  feather-postgres-database
+//  DatabaseConnectionPostgres.swift
+//  feather-database-postgres
 //
 //  Created by Tibor Bödecs on 2026. 01. 10.
 //
@@ -40,9 +40,9 @@ extension DatabaseQuery {
     }
 }
 
-public struct PostgresDatabaseConnection: DatabaseConnection {
+public struct DatabaseConnectionPostgres: DatabaseConnection {
 
-    public typealias RowSequence = PostgresDatabaseRowSequence
+    public typealias RowSequence = DatabaseRowSequencePostgres
 
     var connection: PostgresConnection
     public var logger: Logger
@@ -67,7 +67,7 @@ public struct PostgresDatabaseConnection: DatabaseConnection {
             )
 
             return try await handler(
-                PostgresDatabaseRowSequence(
+                DatabaseRowSequencePostgres(
                     backingSequence: sequence
                 )
             )

@@ -1,8 +1,12 @@
-# Feather Postgres Database
+# Feather Database Postgres 
 
 Postgres driver implementation for the abstract [Feather Database](https://github.com/feather-framework/feather-database) Swift API package.
 
-[![Release: 1.0.0-beta.4](https://img.shields.io/badge/Release-1%2E0%2E0--beta%2E4-F05138)](https://github.com/feather-framework/feather-postgres-database/releases/tag/1.0.0-beta.4)
+[
+    ![Release: 1.0.0-beta.5](https://img.shields.io/badge/Release-1%2E0%2E0--beta%2E5-F05138)
+](
+    https://github.com/feather-framework/feather-database-postgres/releases/tag/1.0.0-beta.5
+)
 
 ## Features
 
@@ -33,20 +37,24 @@ Postgres driver implementation for the abstract [Feather Database](https://githu
 Add the dependency to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/feather-framework/feather-postgres-database", exact: "1.0.0-beta.4"),
+.package(url: "https://github.com/feather-framework/feather-database-postgres", exact: "1.0.0-beta.5"),
 ```
 
-Then add `FeatherPostgresDatabase` to your target dependencies:
+Then add `FeatherDatabasePostgres` to your target dependencies:
 
 ```swift
-.product(name: "FeatherPostgresDatabase", package: "feather-postgres-database"),
+.product(name: "FeatherDatabasePostgres", package: "feather-database-postgres"),
 ```
 
 ## Usage
 
 API documentation is available at the link below:
 
-[![DocC API documentation](https://img.shields.io/badge/DocC-API_documentation-F05138)](https://feather-framework.github.io/feather-postgres-database/)
+[
+    ![DocC API documentation](https://img.shields.io/badge/DocC-API_documentation-F05138)
+](
+    https://feather-framework.github.io/feather-database-postgres/
+)
 
 Here is a brief example:
 
@@ -55,7 +63,7 @@ import Logging
 import NIOSSL
 import PostgresNIO
 import FeatherDatabase
-import FeatherPostgresDatabase
+import FeatherDatabasePostgres
 
 var logger = Logger(label: "example")
 logger.logLevel = .info
@@ -118,8 +126,8 @@ try await withThrowingTaskGroup(of: Void.self) { group in
 
 The following database driver implementations are available for use:
 
-- [SQLite](https://github.com/feather-framework/feather-sqlite-database)
-- [MySQL](https://github.com/feather-framework/feather-mysql-database)
+- [SQLite](https://github.com/feather-framework/feather-database-sqlite)
+- [MySQL](https://github.com/feather-framework/feather-database-mysql)
 
 ## Development
 
@@ -132,4 +140,4 @@ The following database driver implementations are available for use:
 
 ## Contributing
 
-[Pull requests](https://github.com/feather-framework/feather-postgres-database/pulls) are welcome. Please keep changes focused and include tests for new logic.
+[Pull requests](https://github.com/feather-framework/feather-database-postgres/pulls) are welcome. Please keep changes focused and include tests for new logic.
