@@ -1,6 +1,6 @@
 //
-//  PostgresDatabaseRow.swift
-//  feather-postgres-database
+//  DatabaseRowPostgres.swift
+//  feather-database-postgres
 //
 //  Created by Tibor Bödecs on 2026. 01. 10.
 //
@@ -8,7 +8,7 @@
 import FeatherDatabase
 import PostgresNIO
 
-public struct PostgresDatabaseRow: DatabaseRow {
+public struct DatabaseRowPostgres: DatabaseRow {
 
     var row: PostgresRow
 

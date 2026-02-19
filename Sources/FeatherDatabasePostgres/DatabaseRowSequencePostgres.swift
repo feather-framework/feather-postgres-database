@@ -1,6 +1,6 @@
 //
-//  PostgresDatabaseRowSequence.swift
-//  feather-postgres-database
+//  DatabaseRowSequencePostgres.swift
+//  feather-database-postgres
 //
 //  Created by Tibor Bödecs on 2026. 01. 10.
 //
@@ -11,7 +11,7 @@ import PostgresNIO
 /// A query result backed by a Postgres row sequence.
 ///
 /// Use this type to iterate or collect Postgres query results.
-public struct PostgresDatabaseRowSequence: DatabaseRowSequence {
+public struct DatabaseRowSequencePostgres: DatabaseRowSequence {
 
     var backingSequence: PostgresRowSequence
 
@@ -28,7 +28,7 @@ public struct PostgresDatabaseRowSequence: DatabaseRowSequence {
         /// - Returns: The next `PostgresRow`, or `nil` when finished.
         #if compiler(>=6.2)
         @concurrent
-        public mutating func next() async throws -> PostgresDatabaseRow? {
+        public mutating func next() async throws -> DatabaseRowPostgres? {
             guard !Task.isCancelled else {
                 return nil
             }
@@ -65,8 +65,8 @@ public struct PostgresDatabaseRowSequence: DatabaseRowSequence {
     /// This consumes the sequence and returns all rows.
     /// - Throws: An error if iteration fails.
     /// - Returns: An array of `PostgresRow` values.
-    public func collect() async throws -> [PostgresDatabaseRow] {
-        var items: [PostgresDatabaseRow] = []
+    public func collect() async throws -> [DatabaseRowPostgres] {
+        var items: [DatabaseRowPostgres] = []
         for try await item in self {
             items.append(item)
         }

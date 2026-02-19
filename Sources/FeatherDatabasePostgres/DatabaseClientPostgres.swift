@@ -1,6 +1,6 @@
 //
-//  PostgresDatabaseClient.swift
-//  feather-postgres-database
+//  DatabaseClientPostgres.swift
+//  feather-database-postgres
 //
 //  Created by Tibor Bödecs on 2026. 01. 10..
 //
@@ -12,8 +12,8 @@ import PostgresNIO
 /// A Postgres-backed database client.
 ///
 /// Use this client to execute queries and manage transactions on Postgres.
-public struct PostgresDatabaseClient: DatabaseClient {
-    public typealias Connection = PostgresDatabaseConnection
+public struct DatabaseClientPostgres: DatabaseClient {
+    public typealias Connection = DatabaseConnectionPostgres
 
     var client: PostgresNIO.PostgresClient
     var logger: Logger
@@ -46,7 +46,7 @@ public struct PostgresDatabaseClient: DatabaseClient {
     ) async throws(DatabaseError) -> T {
         do {
             return try await client.withConnection { connection in
-                let databaseConnection = PostgresDatabaseConnection(
+                let databaseConnection = DatabaseConnectionPostgres(
                     connection: connection,
                     logger: logger
                 )
@@ -75,7 +75,7 @@ public struct PostgresDatabaseClient: DatabaseClient {
             return try await client.withTransaction(
                 logger: logger
             ) { connection in
-                let databaseConnection = PostgresDatabaseConnection(
+                let databaseConnection = DatabaseConnectionPostgres(
                     connection: connection,
                     logger: logger
                 )
@@ -84,7 +84,7 @@ public struct PostgresDatabaseClient: DatabaseClient {
         }
         catch let error as PostgresTransactionError {
             throw .transaction(
-                PostgresDatabaseTransactionError(
+                DatabaseTransactionErrorPostgres(
                     underlyingError: error
                 )
             )
